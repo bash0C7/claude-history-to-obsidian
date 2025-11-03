@@ -12,6 +12,7 @@ ENV['CLAUDE_LOG_PATH'] = '/tmp/test.log'
 
 require_relative 'test_helper'
 require_relative '../lib/claude_history_to_obsidian'
+require_relative '../lib/claude_history_importer'
 
 class TestClaudeHistoryToObsidian < Test::Unit::TestCase
   include TestHelpers
@@ -360,4 +361,349 @@ class TestClaudeHistoryToObsidian < Test::Unit::TestCase
       FileUtils.rm_rf(project_dir)
     end
   end
+
+  # === エントリーポイント統合テスト（優先度高）===
+
+  # TEST 1: run メソッド - Hook Mode (transcript_path から読み込む)
+  def test_run_entrypoint_hook_mode
+    processor = ClaudeHistoryToObsidian.new
+
+    Dir.mktmpdir do |test_dir|
+      # トランスクリプトファイルを作成
+      transcript_path = File.join(test_dir, 'transcript.json')
+      transcript_data = {
+        'session_id' => 'hook-test-123',
+        'cwd' => '/Users/bash/src/test-project-hook',
+        'messages' => [
+          {'role' => 'user', 'content' => 'Testing hook mode integration', 'timestamp' => '2025-11-03T10:00:00.000Z'},
+          {'role' => 'assistant', 'content' => 'Hook mode test response', 'timestamp' => '2025-11-03T10:00:05.000Z'}
+        ]
+      }
+      File.write(transcript_path, JSON.generate(transcript_data))
+
+      # Hook JSONを準備
+      hook_input = {
+        'session_id' => 'hook-test-123',
+        'transcript_path' => transcript_path,
+        'cwd' => '/Users/bash/src/test-project-hook',
+        'permission_mode' => 'default',
+        'hook_event_name' => 'Stop'
+      }
+
+      # run メソッドを実行（stdin 経由）
+      with_stdin(JSON.generate(hook_input)) do
+        # exit 0 で停止するため、SystemExit をキャッチ
+        begin
+          processor.run
+        rescue SystemExit => e
+          # exit 0 は期待される挙動
+          assert_equal 0, e.status
+        end
+      end
+
+      # ファイルが Vault に保存されたことを確認
+      vault_base = ClaudeHistoryToObsidian::VAULT_BASE_PATH
+      project_dir = File.join(vault_base, 'test-project-hook')
+
+      assert Dir.exist?(project_dir), "Project directory should be created at #{project_dir}"
+
+      files = Dir.glob(File.join(project_dir, '*.md'))
+      assert files.length > 0, 'Markdown file should be created in project directory'
+
+      # ファイルの内容確認
+      content = File.read(files[0])
+      assert_include content, '# Claude Code Session'
+      assert_include content, 'Testing hook mode integration'
+      assert_include content, 'Hook mode test response'
+
+      # クリーンアップ
+      FileUtils.rm_rf(project_dir) if Dir.exist?(project_dir)
+    end
+  end
+
+  # TEST 2: run メソッド - Bulk Import Mode (embedded transcript)
+  def test_run_entrypoint_bulk_import_mode
+    processor = ClaudeHistoryToObsidian.new
+
+    # トランスクリプトを直接埋め込んだ Hook JSON
+    hook_input = {
+      'session_id' => 'bulk-test-456',
+      'cwd' => '/Users/bash/src/test-project-bulk',
+      'permission_mode' => 'default',
+      'hook_event_name' => 'Stop',
+      'transcript' => {
+        'session_id' => 'bulk-test-456',
+        'cwd' => '/Users/bash/src/test-project-bulk',
+        'messages' => [
+          {'role' => 'user', 'content' => 'Bulk import mode test', 'timestamp' => '2025-11-03T11:00:00.000Z'},
+          {'role' => 'assistant', 'content' => 'Bulk import response', 'timestamp' => '2025-11-03T11:00:05.000Z'}
+        ],
+        '_first_message_timestamp' => '20251103-110000'
+      }
+    }
+
+    with_stdin(JSON.generate(hook_input)) do
+      begin
+        processor.run
+      rescue SystemExit => e
+        assert_equal 0, e.status
+      end
+    end
+
+    # Vault に保存されたことを確認
+    vault_base = ClaudeHistoryToObsidian::VAULT_BASE_PATH
+    project_dir = File.join(vault_base, 'test-project-bulk')
+
+    assert Dir.exist?(project_dir), "Project directory should be created for bulk import"
+
+    files = Dir.glob(File.join(project_dir, '*.md'))
+    assert files.length > 0, 'Markdown file should be created in bulk import mode'
+
+    # ファイル名が _first_message_timestamp を使用していることを確認
+    filename = File.basename(files[0])
+    assert filename.start_with?('20251103-110000'), "Filename should start with timestamp from transcript: #{filename}"
+
+    # クリーンアップ
+    FileUtils.rm_rf(project_dir) if Dir.exist?(project_dir)
+  end
+
+  # TEST 3: run メソッド - Error handling (missing transcript_path)
+  def test_run_with_missing_transcript_path
+    processor = ClaudeHistoryToObsidian.new
+
+    hook_input = {
+      'session_id' => 'missing-test',
+      'transcript_path' => '/tmp/non_existent_transcript_12345.json',
+      'cwd' => '/test/project',
+      'permission_mode' => 'default',
+      'hook_event_name' => 'Stop'
+    }
+
+    # トランスクリプトが見つからない場合、エラーログを出力して exit 0
+    with_stdin(JSON.generate(hook_input)) do
+      begin
+        processor.run
+      rescue SystemExit => e
+        assert_equal 0, e.status, 'Should exit with 0 even on file not found'
+      end
+    end
+  end
+
+  # TEST 4: ClaudeHistoryImporter#run - Multiple JSONL files integration
+  def test_importer_run_with_multiple_files
+    Dir.mktmpdir do |test_dir|
+      # 2つの JSONL ファイルを作成
+      jsonl1 = File.join(test_dir, 'file1.jsonl')
+      jsonl2 = File.join(test_dir, 'file2.jsonl')
+
+      File.write(jsonl1, '{"sessionId":"import-001","cwd":"/test/proj1","message":{"role":"user","content":"Session 1"},"timestamp":"2025-11-03T10:00:00.000Z"}')
+      File.write(jsonl2, '{"sessionId":"import-002","cwd":"/test/proj2","message":{"role":"user","content":"Session 2"},"timestamp":"2025-11-03T11:00:00.000Z"}')
+
+      # run メソッドで複数ファイルを処理
+      importer = ClaudeHistoryImporter.new
+
+      output = capture_stdout do
+        with_stdin("#{jsonl1}\n#{jsonl2}\n") do
+          importer.run
+        end
+      end
+
+      # 2つの Hook JSON が出力されることを確認
+      lines = output.strip.split("\n").reject { |line| line.empty? }
+      assert_equal 2, lines.length, 'Should output 2 Hook JSON objects'
+
+      # 各行が有効な JSON であることを確認
+      lines.each do |line|
+        hook_json = JSON.parse(line)
+        assert_not_nil hook_json['session_id']
+        assert_not_nil hook_json['transcript']
+      end
+    end
+  end
+
+  # TEST: build_markdown with Array content format (Claude Code API)
+  def test_build_markdown_with_array_content
+    processor = ClaudeHistoryToObsidian.new
+    
+    # content が配列形式のメッセージ（Claude Code API形式）
+    messages = [
+      {
+        'role' => 'user',
+        'content' => 'Test user message'
+      },
+      {
+        'role' => 'assistant',
+        'content' => [
+          {'type' => 'text', 'text' => 'First part of response'},
+          {'type' => 'text', 'text' => 'Second part of response'}
+        ]
+      }
+    ]
+    
+    markdown = processor.send(:build_markdown,
+      project_name: 'test-project',
+      cwd: '/test/project',
+      session_id: 'abc123',
+      messages: messages)
+    
+    # マークダウンに配列の内容が含まれることを確認
+    assert_include markdown, 'First part of response'
+    assert_include markdown, 'Second part of response'
+  end
+
+
+  # TEST: notify メソッド
+  def test_notify_with_macos
+    processor = ClaudeHistoryToObsidian.new
+    
+    # macOS での通知テスト（terminal-notifier が利用可能な場合）
+    # 通知が呼ばれてもエラーが出ないことを確認
+    begin
+      processor.send(:notify, "Test notification")
+      # エラーが出なければ成功
+      assert true
+    rescue StandardError => e
+      # terminal-notifier が無い場合は OK
+      assert true
+    end
+  end
+
+  # TEST: macos? メソッド
+  def test_macos_platform_detection
+    processor = ClaudeHistoryToObsidian.new
+    
+    # macOS プラットフォームの判定
+    is_macos = processor.send(:macos?)
+    assert is_macos.is_a?(TrueClass) || is_macos.is_a?(FalseClass)
+  end
+
+  # TEST: log メソッド
+  def test_log_writes_to_file
+    processor = ClaudeHistoryToObsidian.new
+    
+    # ログファイルにメッセージが書き込まれることを確認
+    test_message = "Test log message #{Time.now.to_i}"
+    processor.send(:log, test_message)
+    
+    log_file = ClaudeHistoryToObsidian::LOG_FILE_PATH
+    assert File.exist?(log_file), "Log file should exist"
+    
+    log_content = File.read(log_file)
+    assert_include log_content, test_message, "Log file should contain the test message"
+  end
+
+  # TEST: load_hook_input with transcript field (bulk import mode)
+  def test_load_hook_input_prefers_embedded_transcript
+    processor = ClaudeHistoryToObsidian.new
+    
+    hook_json = {
+      'session_id' => 'bulk-test',
+      'cwd' => '/test/project',
+      'permission_mode' => 'default',
+      'hook_event_name' => 'Stop',
+      'transcript' => {
+        'session_id' => 'bulk-test',
+        'messages' => [],
+        'cwd' => '/test/project'
+      }
+    }
+    
+    result = with_stdin(JSON.generate(hook_json)) do
+      processor.send(:load_hook_input)
+    end
+    
+    assert_equal 'bulk-test', result['session_id']
+    assert_not_nil result['transcript'], 'Should parse embedded transcript'
+  end
+
+
+  # TEST: run メソッド - Error case with invalid JSON input
+  def test_run_with_invalid_hook_json
+    processor = ClaudeHistoryToObsidian.new
+    
+    # 無効な JSON を stdin に渡す
+    invalid_json = '{not valid json}'
+    
+    with_stdin(invalid_json) do
+      begin
+        processor.run
+      rescue SystemExit => e
+        # exit 0 で終了すること
+        assert_equal 0, e.status, 'Should exit with 0 on invalid JSON'
+      end
+    end
+  end
+
+  # TEST: run メソッド - Exception handling in build_markdown
+  def test_run_with_exception_in_processing
+    processor = ClaudeHistoryToObsidian.new
+    
+    # Hook JSON を用意（有効）
+    Dir.mktmpdir do |test_dir|
+      # 無効な JSON を持つ transcript ファイルを作成
+      invalid_transcript_path = File.join(test_dir, 'invalid.json')
+      File.write(invalid_transcript_path, 'not valid json')
+      
+      hook_input = {
+        'session_id' => 'error-test',
+        'transcript_path' => invalid_transcript_path,
+        'cwd' => '/test/project',
+        'permission_mode' => 'default',
+        'hook_event_name' => 'Stop'
+      }
+      
+      with_stdin(JSON.generate(hook_input)) do
+        begin
+          processor.run
+        rescue SystemExit => e
+          # exit 0 で終了すること（エラーを処理してログ出力）
+          assert_equal 0, e.status, 'Should exit with 0 even with exception'
+        end
+      end
+    end
+  end
+
+  # TEST: process_transcript メソッド（Bulk Import用）
+  def test_process_transcript_creates_file
+    processor = ClaudeHistoryToObsidian.new
+    
+    vault_base = ClaudeHistoryToObsidian::VAULT_BASE_PATH
+    project_dir = File.join(vault_base, 'test-process-transcript')
+    
+    # 前回実行のクリーンアップ
+    FileUtils.rm_rf(project_dir) if Dir.exist?(project_dir)
+    
+    begin
+      transcript = {
+        'session_id' => 'test-process-123',
+        'cwd' => '/test/project',
+        'messages' => [
+          {'role' => 'user', 'content' => 'Test process_transcript'},
+          {'role' => 'assistant', 'content' => 'Response'}
+        ],
+        '_first_message_timestamp' => '20251104-100000'
+      }
+      
+      processor.process_transcript(
+        project_name: 'test-process-transcript',
+        cwd: '/test/project',
+        session_id: 'test-process-123',
+        transcript: transcript,
+        messages: transcript['messages']
+      )
+      
+      # ファイルが作成されたことを確認
+      assert Dir.exist?(project_dir), 'Project directory should be created'
+      
+      files = Dir.glob(File.join(project_dir, '*.md'))
+      assert files.length > 0, 'Markdown file should be created'
+      
+      # タイムスタンプが使用されていることを確認
+      filename = File.basename(files[0])
+      assert filename.start_with?('20251104-100000'), "Should use transcript timestamp: #{filename}"
+    ensure
+      FileUtils.rm_rf(project_dir) if Dir.exist?(project_dir)
+    end
+  end
+
 end

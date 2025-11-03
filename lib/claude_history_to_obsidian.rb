@@ -140,6 +140,11 @@ class ClaudeHistoryToObsidian
     messages.each do |msg|
       role = msg['role']
       content = msg['content']
+      
+      # content が配列形式の場合（Claude Code API形式）、テキストを抽出
+      if content.is_a?(Array)
+        content = content.map { |c| c.is_a?(Hash) && c['type'] == 'text' ? c['text'] : c.to_s }.join("\n")
+      end
 
       if role == 'user'
         output << "## 👤 User"

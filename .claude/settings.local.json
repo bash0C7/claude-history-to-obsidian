@@ -10,7 +10,8 @@
       "Bash(git branch:*)",
       "Bash(git push:*)",
       "Bash(rake monitor:*)",
-      "Bash(rake check_env:*)"
+      "Bash(rake check_env:*)",
+      "Bash(bundle exec ruby:*)"
     ],
     "deny": [
       "Bash(git remote remove:*)",

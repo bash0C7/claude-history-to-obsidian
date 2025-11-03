@@ -15,7 +15,9 @@ class ClaudeHistoryToObsidian
     hook_input = load_hook_input
     return unless hook_input
 
-    transcript = load_transcript(hook_input['transcript_path'])
+    # Bulk Import時: transcript が直接埋め込まれている
+    # Hook時: transcript_path から読み込む
+    transcript = hook_input['transcript'] || load_transcript(hook_input['transcript_path'])
     return unless transcript
 
     project_name = File.basename(hook_input['cwd'])

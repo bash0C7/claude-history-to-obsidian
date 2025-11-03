@@ -3,7 +3,6 @@
 
 require 'json'
 require 'fileutils'
-require 'tempfile'
 require 'time'
 
 class ClaudeHistoryImporter
@@ -87,15 +86,10 @@ class ClaudeHistoryImporter
     }
     transcript['_first_message_timestamp'] = first_message_timestamp if first_message_timestamp
 
-    # Tempfile に保存（自動クリーンアップ対応）
-    tempfile = Tempfile.new(['transcript-', '.json'])
-    tempfile.write(JSON.generate(transcript))
-    tempfile.close
-
-    # Hook JSON を生成して stdout に出力（1行1セッション）
+    # Hook JSON を生成（transcript を直接埋め込む）
     hook_json = {
       'session_id' => session_id,
-      'transcript_path' => tempfile.path,
+      'transcript' => transcript,
       'cwd' => cwd,
       'permission_mode' => 'default',
       'hook_event_name' => 'Stop'

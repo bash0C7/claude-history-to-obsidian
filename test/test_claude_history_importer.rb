@@ -4,6 +4,8 @@
 require 'test/unit'
 require 'json'
 require 'fileutils'
+require 'tmpdir'
+require 'stringio'
 require_relative '../lib/claude_history_importer'
 
 class TestClaudeHistoryImporter < Test::Unit::TestCase
@@ -84,5 +86,51 @@ class TestClaudeHistoryImporter < Test::Unit::TestCase
 
     sessions = @importer.send(:parse_and_group_sessions, jsonl_path)
     assert_equal 0, sessions.length, 'Empty JSONL should result in 0 sessions'
+  end
+
+  def test_process_session_outputs_hook_json
+    # シンプルなセッションデータを作成
+    messages = [
+      {
+        'role' => 'user',
+        'content' => 'Test message',
+        'timestamp' => '2025-11-03T10:00:00.000Z'
+      },
+      {
+        'role' => 'assistant',
+        'content' => 'Response',
+        'timestamp' => '2025-11-03T10:00:05.000Z'
+      }
+    ]
+
+    session_data = {
+      messages: messages,
+      cwd: '/test/project'
+    }
+
+    # 標準出力をキャプチャ
+    original_stdout = $stdout
+    $stdout = StringIO.new
+    begin
+      @importer.send(:process_session, 'test-session-123', session_data)
+      output = $stdout.string.strip
+    ensure
+      $stdout = original_stdout
+    end
+
+    # Hook JSON をパース
+    hook_json = JSON.parse(output)
+
+    # アサーション
+    assert_equal 'test-session-123', hook_json['session_id']
+    assert_equal '/test/project', hook_json['cwd']
+    assert_equal 'default', hook_json['permission_mode']
+    assert_equal 'Stop', hook_json['hook_event_name']
+
+    # transcript が埋め込まれていることを確認
+    assert_not_nil hook_json['transcript'], 'transcript should be embedded'
+    assert_equal 'test-session-123', hook_json['transcript']['session_id']
+    assert_equal 2, hook_json['transcript']['messages'].length
+    assert_equal '20251103-100000', hook_json['transcript']['_first_message_timestamp']
   end
 end

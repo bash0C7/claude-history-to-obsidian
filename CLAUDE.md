@@ -195,6 +195,10 @@ claude-history-to-obsidian/
 ```
 
 **Hook JSON Input Structure** (via stdin):
+
+Two formats depending on source:
+
+**Hook Mode** (Claude Code Hook triggers):
 ```json
 {
   "session_id": "abc123456789...",
@@ -204,6 +208,29 @@ claude-history-to-obsidian/
   "hook_event_name": "Stop"
 }
 ```
+
+**Bulk Import Mode** (claude-history-import):
+```json
+{
+  "session_id": "abc123456789...",
+  "transcript": {
+    "session_id": "abc123456789...",
+    "cwd": "/Users/bash/src/Arduino/picoruby-recipes",
+    "messages": [
+      {"role": "user", "content": "...", "timestamp": "2025-11-02T14:30:22.000Z"},
+      {"role": "assistant", "content": "...", "timestamp": "2025-11-02T14:30:25.000Z"}
+    ],
+    "_first_message_timestamp": "20251102-143022"
+  },
+  "cwd": "/Users/bash/src/Arduino/picoruby-recipes",
+  "permission_mode": "default",
+  "hook_event_name": "Stop"
+}
+```
+
+The script handles both formats:
+- `transcript` field (present in Bulk Import) → use directly
+- `transcript_path` field (present in Hook) → read from file
 
 ## 📝 Output Specifications
 

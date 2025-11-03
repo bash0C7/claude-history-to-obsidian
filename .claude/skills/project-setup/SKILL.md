@@ -431,22 +431,139 @@ alias ctest="cd $PROJ_ROOT && cat /tmp/hook-input.json | bundle exec ruby bin/cl
 Fix common setup issues:
 
 ```bash
-# Ruby バージョン問題
+# Ruby version issues
 rbenv install 3.4.7
 rbenv local 3.4.7
 
-# Bundler キャッシュの問題
+# Bundler cache problems
 bundle clean --force
 bundle install
 
-# Gem パスのリセット
+# Gem path reset
 rm -rf vendor/bundle
 bundle config set --local path vendor/bundle
 bundle install
 
-# executable 権限の設定
+# Set executable permissions
 chmod +x /Users/bash/src/claude-history-to-obsidian/bin/claude-history-to-obsidian
 
-# ログディレクトリ作成
+# Create logging directory
 mkdir -p ~/.local/var/log
 ```
+
+## Claude Code Integration
+
+### First Time in Claude Code
+
+When first opening this project in Claude Code:
+
+1. **Verify environment**:
+   ```bash
+   # Use this to run full setup check
+   bash << 'EOF'
+   PROJ_DIR="/Users/bash/src/claude-history-to-obsidian"
+   cd "$PROJ_DIR" || exit 1
+
+   # Quick checks
+   ruby -v
+   bundle --version
+   bundle config | grep path
+   ls -d bin lib vendor .ruby-version Gemfile 2>/dev/null
+   EOF
+   ```
+
+2. **If anything is missing**: Use `/bundler-management` skill to fix
+
+### During Development Sessions
+
+**Before starting work**:
+```bash
+cd /Users/bash/src/claude-history-to-obsidian
+
+# Verify nothing changed since last session
+git status
+
+# Quick dependency check
+bundle check
+
+# Proceed if all green
+```
+
+**If you need to add files**:
+1. Create/edit files in `bin/` or `lib/`
+2. Never touch `vendor/bundle/`
+3. Test with: `bundle exec ruby bin/claude-history-to-obsidian`
+
+### Git Subtree Integration
+
+When this project is used as a git subtree in another repo:
+
+1. **Before subtree pull**:
+   ```bash
+   # Ensure local setup is clean
+   bundle check
+   git status
+   ```
+
+2. **After subtree pull**:
+   ```bash
+   # May need to update gems if Gemfile changed
+   bundle install
+   bundle exec ruby bin/claude-history-to-obsidian  # Quick test
+   ```
+
+3. **When contributing back**:
+   ```bash
+   # Create feature branch
+   git checkout -b feature/fix-something
+
+   # Make changes, test with:
+   bundle exec ruby bin/claude-history-to-obsidian
+
+   # Commit and push for PR
+   ```
+
+### Multi-Project Setup
+
+When deployed to multiple projects:
+
+1. **Installation path**: `~/.local/bin/claude-history-to-obsidian`
+2. **Hook path**: Each project's `.claude/settings.local.json`
+3. **Logs centralized**: All log to `~/.local/var/log/claude-history-to-obsidian.log`
+
+**Verify cross-project availability**:
+```bash
+# From any project
+which claude-history-to-obsidian
+# Should output: ~/.local/bin/claude-history-to-obsidian
+
+# Or via bundle
+cd /Users/bash/src/claude-history-to-obsidian
+bundle exec which ruby
+```
+
+### Performance Checklist
+
+Ensure optimal performance in Claude Code:
+
+- ✅ Use `bundle check` instead of `bundle install` when not adding gems
+- ✅ Cache rubygems: Keep `~/.bundle/` directory
+- ✅ Avoid `rm -rf vendor/bundle` unless necessary
+- ✅ Skip unnecessary bundler operations in hooks
+- ✅ Test locally before using in live hooks
+
+### Common Setup Errors in Claude Code
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `bundle: command not found` | Bundler not installed | `gem install bundler` |
+| `Ruby 3.4.7 not found` | rbenv missing Ruby version | `rbenv install 3.4.7` |
+| `vendor/bundle not found` | Never ran `bundle install` | Run `/bundler-management` skill |
+| `Permission denied: bin/...` | Executable bit not set | `chmod +x bin/claude-history-to-obsidian` |
+| `iCloud Drive not accessible` | Vault path doesn't exist | Create: `mkdir -p ~/Library/Mobile\ Documents/iCloud~md~obsidian/Documents/ObsidianVault/Claude\ Code` |
+
+### Documentation Reference
+
+- **CLAUDE.md**: Full project specification
+- **README.md**: Usage and installation
+- **Related skills**: bundler-management, git-subtree-management, ruby-testing

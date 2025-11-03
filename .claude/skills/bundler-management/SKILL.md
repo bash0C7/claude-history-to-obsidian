@@ -326,3 +326,90 @@ cd vendor/bundle && gem ...   # Manual modification
 modify Gemfile.lock manually  # Only bundle updates this
 skip --path vendor/bundle     # Must always be set
 ```
+
+## Claude Code Integration
+
+### Use in Claude Code Sessions
+
+When using this skill within Claude Code:
+
+1. **Initial Session Setup**:
+   ```bash
+   # Verify bundler is ready before starting work
+   bundle config
+   bundle check
+   ```
+
+2. **During Development**:
+   - Always prefix Ruby commands with `bundle exec`
+   - Never skip the `bundle exec` wrapper
+   - All gem operations must go through `bundle add/remove`
+
+3. **Adding Dependencies**:
+   ```bash
+   # Within Claude Code session
+   bundle add gem-name            # Interactive gem selection
+   bundle add gem-name --version "~> 2.0"
+
+   # Verify changes
+   git diff Gemfile
+   git diff Gemfile.lock
+   ```
+
+4. **Testing Changes**:
+   ```bash
+   # Run with bundled environment
+   bundle exec ruby bin/claude-history-to-obsidian
+
+   # Or with piped input (for hook simulation)
+   cat /tmp/hook-input.json | bundle exec ruby bin/claude-history-to-obsidian
+   ```
+
+### Integration with git-subtree-management
+
+When using this project as a git subtree:
+
+1. **Before subtree operations**: Ensure bundler is clean
+   ```bash
+   bundle check  # Verify all deps installed
+   ```
+
+2. **After pulling subtree changes**:
+   ```bash
+   bundle install  # May need to re-resolve dependencies
+   bundle exec ruby bin/claude-history-to-obsidian  # Test after update
+   ```
+
+3. **Committing bundler changes**:
+   ```bash
+   git add Gemfile Gemfile.lock
+   git commit -m "Update dependencies"
+   git subtree push ...  # If contributing back
+   ```
+
+### Workflow Recommendations
+
+**Safe dependency workflow**:
+1. Use `/project-setup` skill to verify environment first
+2. Use `bundle-management` to add/update gems
+3. Test with `/ruby-testing` skill
+4. Use git-subtree-management for multi-repo sync
+
+**Performance optimization**:
+- Bundle operations are fast (< 5 seconds typically)
+- Bundler caches downloads in `~/.bundle/`
+- `bundle install` is idempotent (safe to run multiple times)
+- Use `bundle check` to verify without changes
+
+### Troubleshooting in Claude Code
+
+**If bundler breaks**:
+1. Check Ruby version: `ruby -v` should match `.ruby-version`
+2. Run: `bundle config set --local path vendor/bundle`
+3. Run: `bundle install --redownload`
+4. Delete and recreate: `rm -rf vendor/bundle && bundle install`
+
+**If gems won't install**:
+- Check internet connection: `curl https://rubygems.org/`
+- Clear bundler cache: `bundle clean --force`
+- Try with specific rubygems source (if issues persist)

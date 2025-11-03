@@ -2,6 +2,16 @@
 
 Ruby CLI tool that automatically saves Claude Code conversation transcripts to Obsidian vault via Hook integration.
 
+<output_tone>
+**日本語で出力すること**:
+- **絶対に日本語で応答・プラン提示すること**
+- 通常時: 語尾に「ピョン。」をつけて可愛く
+- 盛り上がってきたら:「チェケラッチョ！！」と叫ぶ
+- コード内コメント: 日本語、体言止め
+- ドキュメント(.md): 英語で記述
+- Git commit: 英語、命令形
+</output_tone>
+
 ## 🎯 Project Context
 
 - **Language**: Ruby 3.4.7 (CRuby)
@@ -360,3 +370,131 @@ Main class `ClaudeHistoryToObsidian`:
 - `log`: Write to log file for debugging
 
 All private methods except `run` (which is called by bin script).
+
+## 🌳 Git Subtree Management
+
+This project can be embedded in other repositories using `git subtree` for multi-repo management and synchronization.
+
+### Use Cases
+
+1. **Embed in dotfiles repo**: Include this tool in your dotfiles for centralized management
+2. **Shared team setup**: Distribute to team members via their own repos
+3. **Monorepo integration**: Include as a component in larger project structure
+
+### Initial Setup (Adding as Subtree)
+
+```bash
+# In your target repository
+git subtree add --prefix tools/claude-history-to-obsidian \
+  https://github.com/YOUR_USERNAME/claude-history-to-obsidian.git main
+
+# Verify
+ls -la tools/claude-history-to-obsidian/
+```
+
+### Updating Subtree
+
+```bash
+# Pull latest changes from upstream
+git subtree pull --prefix tools/claude-history-to-obsidian \
+  https://github.com/YOUR_USERNAME/claude-history-to-obsidian.git main
+
+# Or use shorthand if remote exists
+git subtree pull --prefix tools/claude-history-to-obsidian origin main
+```
+
+### Pushing Changes Back
+
+```bash
+# Commit changes locally first
+git add .
+git commit -m "Update claude-history-to-obsidian subtree"
+
+# Push changes to subtree upstream
+git subtree push --prefix tools/claude-history-to-obsidian \
+  https://github.com/YOUR_USERNAME/claude-history-to-obsidian.git main
+```
+
+### Add Remote for Easier Commands
+
+```bash
+# Add subtree remote
+git remote add claude-history https://github.com/YOUR_USERNAME/claude-history-to-obsidian.git
+
+# Now use simpler commands
+git subtree pull --prefix tools/claude-history-to-obsidian claude-history main
+git subtree push --prefix tools/claude-history-to-obsidian claude-history main
+```
+
+### Best Practices
+
+- **Isolate subtree changes**: Keep subtree commits separate from main repo changes
+- **Pull before push**: Always pull latest before pushing subtree changes
+- **Document subtree path**: Document where subtree is embedded in your project
+- **Version tracking**: Reference upstream releases in commit messages
+- **Avoid modifying**: Prefer upstream changes over local modifications
+
+### Removing Subtree
+
+```bash
+# If needed, remove the subtree directory
+git rm -r tools/claude-history-to-obsidian
+git commit -m "Remove claude-history-to-obsidian subtree"
+
+# Clean up history (optional, advanced)
+git filter-branch --tree-filter 'rm -rf tools/claude-history-to-obsidian' HEAD
+```
+
+## 🤖 Claude Code Integration Best Practices
+
+### Multi-Project Usage
+
+When using this tool across multiple projects:
+
+1. **Centralized Installation**: Install once in dotfiles or global tools directory
+2. **Hook Configuration**: Each project's `.claude/settings.local.json` references the same binary
+3. **Log Centralization**: All projects log to `~/.local/var/log/claude-history-to-obsidian.log`
+
+Example hook configuration for multi-project:
+```json
+{
+  "hooks": {
+    "Stop": {
+      "*": [{
+        "command": "bash -c '~/.local/bin/claude-history-to-obsidian'"
+      }]
+    }
+  }
+}
+```
+
+### Using with Claude Code Projects
+
+When using Claude Code in this project itself:
+
+1. **Test with hook simulator**: Use `/tmp/hook-input.json` for local testing
+2. **Monitor logs in real-time**: `tail -f ~/.local/var/log/claude-history-to-obsidian.log`
+3. **Verify Obsidian sync**: Check `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/ObsidianVault/`
+4. **Version control hooks**: Check in `.claude/settings.local.json` for reproducibility
+
+### Performance Considerations
+
+- **Hook execution time**: Typically < 100ms for transcript processing
+- **iCloud sync**: Happens asynchronously, don't block on it
+- **File I/O**: Bundle operations (reads transcript, writes output) efficiently
+- **Memory footprint**: Minimal for reasonable transcript sizes (< 100MB)
+
+### Debugging with Claude Code
+
+Use these commands during Claude Code sessions:
+
+```bash
+# View recent logs
+tail -20 ~/.local/var/log/claude-history-to-obsidian.log
+
+# Monitor hook execution
+tail -f ~/.local/var/log/claude-history-to-obsidian.log
+
+# Test script directly
+cat /tmp/hook-input.json | bundle exec ruby bin/claude-history-to-obsidian
+```

@@ -4,6 +4,22 @@
 require 'json'
 require_relative 'lib/claude_history_to_obsidian'
 
+desc 'Run all tests with coverage report'
+task 'test:coverage' do
+  test_files = Dir.glob('test/test_*.rb').reject { |f| f.include?('test_helper') }.join(' ')
+  sh "bundle exec ruby -I lib:test -rtest/unit #{test_files}"
+  puts "\n📊 Coverage report: coverage/index.html"
+  sh 'open coverage/index.html' if RUBY_PLATFORM.include?('darwin')
+end
+
+desc 'Run all tests'
+task :test do
+  test_files = Dir.glob('test/test_*.rb').reject { |f| f.include?('test_helper') }.join(' ')
+  sh "bundle exec ruby -I lib:test -rtest/unit #{test_files}"
+end
+
+task default: :test
+
 desc 'Bulk import past Claude Code sessions from ~/.claude/projects/'
 task :bulk_import do
   projects_dir = File.expand_path('~/.claude/projects/')

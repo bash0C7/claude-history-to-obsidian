@@ -700,3 +700,10 @@ tail -f ~/.local/var/log/claude-history-to-obsidian.log
 # Test script directly
 cat /tmp/hook-input.json | bundle exec ruby bin/claude-history-to-obsidian
 ```
+
+---
+
+## 📚 Additional Documentation
+
+@CLAUDE_TODO.md
+@README.md

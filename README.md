@@ -424,30 +424,6 @@ end
 
 ---
 
-## ✅ 実装チェックリスト
-
-- [x] Repository 作成：`claude-history-to-obsidian`
-- [ ] .gitignoreを作成。一般的なRuby、Claude Codeプロジェクト、Macのignore設定にあわせる。アプリケーションなのでGemfile.lockもバージョン管理下に入れる
-- [ ] `Gemfile`, `.ruby-version` (バージョンは 3.4.7)作成
-- [ ] bundle installする。ただしgemはここのvendor配下に配置
-- [ ] `lib/claude_history_to_obsidian.rb` 実装
-- [ ] `bin/claude-history-to-obsidian` 作成（実行エントリーポイント） 実行はbundle exec ruby bin/claude-history-to-obsidian
-- [ ] Hook JSON stdin 読み込み
-- [ ] Transcript JSON パース
-- [ ] セッション名推測ロジック実装
-- [ ] Markdown 変換ロジック実装
-- [ ] Obsidian Vault ディレクトリ作成
-- [ ] ファイル名生成（日時 + セッション名 + ID）
-- [ ] ファイル書き込み（iCloud Drive）
-- [ ] エラーハンドリング（非ブロッキング exit）
-- [ ] ログ記録機能
-- [ ] 通知機能（オプション、terminal-notifier）
-- [ ] ローカルテスト実行・確認
-- [ ] README 作成
-- [ ] GitHub にプッシュ
-
----
-
 ## 🔍 参考：既存実装ドキュメント
 
 前回のドキュメント：

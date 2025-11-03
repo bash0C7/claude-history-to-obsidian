@@ -1,7 +1,14 @@
 GEM
   remote: https://rubygems.org/
   specs:
+    docile (1.4.1)
     power_assert (3.0.0)
+    simplecov (0.22.0)
+      docile (~> 1.1)
+      simplecov-html (~> 0.11)
+      simplecov_json_formatter (~> 0.1)
+    simplecov-html (0.13.2)
+    simplecov_json_formatter (0.1.4)
     terminal-notifier (2.0.0)
     test-unit (3.7.1)
       power_assert
@@ -11,6 +18,7 @@ PLATFORMS
   x86_64-linux
 
 DEPENDENCIES
+  simplecov (~> 0.22)
   terminal-notifier (~> 2.0)
   test-unit (~> 3.6)
 

@@ -29,6 +29,7 @@ CLAUDE.local.md
 # Test artifacts
 /tmp/
 .test-results/
+coverage/
 
 # OS specific
 .DS_Store

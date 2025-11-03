@@ -8,4 +8,5 @@ gem 'terminal-notifier', '~> 2.0', require: false
 
 group :development do
   gem 'test-unit', '~> 3.6'
+  gem 'simplecov', '~> 0.22', require: false
 end

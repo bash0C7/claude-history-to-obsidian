@@ -5,6 +5,11 @@ require 'test/unit'
 require 'json'
 require 'fileutils'
 require 'tmpdir'
+
+# ENV変数をテスト用に設定（lib読み込み前に定数を初期化）
+ENV['CLAUDE_VAULT_PATH'] = '/tmp/test-vault'
+ENV['CLAUDE_LOG_PATH'] = '/tmp/test.log'
+
 require_relative 'test_helper'
 require_relative '../lib/claude_history_to_obsidian'
 
@@ -265,6 +270,94 @@ class TestClaudeHistoryToObsidian < Test::Unit::TestCase
       result = processor.send(:load_transcript, transcript_path)
 
       assert_nil result, 'Invalid JSON should return nil'
+    end
+  end
+
+  # Phase 3: iCloud Drive依存テスト（ENV変数で隔離）
+
+  def test_ensure_directories_creates_project_dir
+    processor = ClaudeHistoryToObsidian.new
+
+    # ENV['CLAUDE_VAULT_PATH']は既にテスト開始時に'/tmp/test-vault'に設定済み
+    # ここでは VAULT_BASE_PATH定数の値を使用してテスト
+    vault_path = File.join(ClaudeHistoryToObsidian::VAULT_BASE_PATH, 'test-project')
+
+    # テスト用ディレクトリを事前にクリーンアップ
+    FileUtils.rm_rf(vault_path) if Dir.exist?(vault_path)
+
+    result = processor.send(:ensure_directories, 'test-project')
+
+    assert_equal vault_path, result
+    assert Dir.exist?(vault_path), 'Project directory should be created'
+
+    # クリーンアップ
+    FileUtils.rm_rf(vault_path)
+  end
+
+  def test_save_to_vault_writes_markdown_file
+    processor = ClaudeHistoryToObsidian.new
+
+    Dir.mktmpdir do |vault_base|
+      vault_dir = File.join(vault_base, 'test-project')
+      FileUtils.mkdir_p(vault_dir)
+
+      content = "# Test\n\nThis is test content"
+      filename = '20251103-143022_test-session_abc12345.md'
+
+      processor.send(:save_to_vault, vault_dir, filename, content)
+
+      filepath = File.join(vault_dir, filename)
+      assert File.exist?(filepath), 'Markdown file should be created'
+
+      written_content = File.read(filepath)
+      assert_equal content, written_content, 'File content should match'
+    end
+  end
+
+  def test_process_transcript_end_to_end
+    processor = ClaudeHistoryToObsidian.new
+
+    # ENV['CLAUDE_VAULT_PATH']は既に'/tmp/test-vault'に設定済み
+    # テスト用プロジェクトディレクトリを準備
+    vault_base = ClaudeHistoryToObsidian::VAULT_BASE_PATH
+    project_dir = File.join(vault_base, 'test-project-e2e')
+
+    # 前回実行のクリーンアップ
+    FileUtils.rm_rf(project_dir) if Dir.exist?(project_dir)
+
+    begin
+      transcript_data = {
+        'session_id' => 'test-session-123',
+        'cwd' => '/test/project',
+        'messages' => [
+          {'role' => 'user', 'content' => 'Implementing end-to-end test', 'timestamp' => '2025-11-03T10:00:00.000Z'},
+          {'role' => 'assistant', 'content' => 'I will help with the test', 'timestamp' => '2025-11-03T10:00:05.000Z'}
+        ],
+        '_first_message_timestamp' => '20251103-100000'
+      }
+
+      # process_transcriptを呼び出す
+      processor.send(:process_transcript,
+        project_name: 'test-project-e2e',
+        cwd: '/test/project',
+        session_id: 'test-session-123',
+        transcript: transcript_data,
+        messages: transcript_data['messages']
+      )
+
+      # ファイルが作成されたことを確認
+      assert Dir.exist?(project_dir), 'Project directory should be created'
+
+      # ファイルリストを確認
+      files = Dir.glob(File.join(project_dir, '*.md'))
+      assert files.length > 0, 'Markdown files should be created'
+
+      # ファイル名形式を確認（YYYYMMDD-HHMMSS_name_sessionid.md）
+      filename = File.basename(files[0])
+      assert filename.match?(/^\d{8}-\d{6}_.*_.{8}\.md$/), "Filename format should match pattern: #{filename}"
+    ensure
+      # クリーンアップ
+      FileUtils.rm_rf(project_dir)
     end
   end
 end

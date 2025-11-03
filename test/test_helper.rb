@@ -36,4 +36,24 @@ module TestHelpers
   ensure
     $stdin = original_stdin
   end
+
+  # 環境変数を一時的に上書きしてブロック内で実行
+  # ブロック終了後に元の値に自動復元
+  def with_env(overrides)
+    original = {}
+    overrides.each do |key, value|
+      original[key] = ENV[key.to_s]
+      ENV[key.to_s] = value
+    end
+
+    yield
+  ensure
+    original.each do |key, value|
+      if value.nil?
+        ENV.delete(key.to_s)
+      else
+        ENV[key.to_s] = value
+      end
+    end
+  end
 end

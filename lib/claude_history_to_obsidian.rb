@@ -6,10 +6,14 @@ require 'fileutils'
 require 'time'
 
 class ClaudeHistoryToObsidian
-  VAULT_BASE_PATH = File.expand_path(
-    '~/Library/Mobile Documents/iCloud~md~obsidian/Documents/ObsidianVault/Claude Code'
+  VAULT_BASE_PATH = ENV.fetch(
+    'CLAUDE_VAULT_PATH',
+    File.expand_path('~/Library/Mobile Documents/iCloud~md~obsidian/Documents/ObsidianVault/Claude Code')
   )
-  LOG_FILE_PATH = File.expand_path('~/.local/var/log/claude-history-to-obsidian.log')
+  LOG_FILE_PATH = ENV.fetch(
+    'CLAUDE_LOG_PATH',
+    File.expand_path('~/.local/var/log/claude-history-to-obsidian.log')
+  )
 
   def run
     hook_input = load_hook_input

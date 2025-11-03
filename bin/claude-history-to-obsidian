@@ -1,0 +1,9 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Claude Code履歴をObsidian vaultに保存するHook実行スクリプト
+# 使い方: cat hook-input.json | bundle exec ruby bin/claude-history-to-obsidian
+
+require_relative '../lib/claude_history_to_obsidian'
+
+ClaudeHistoryToObsidian.new.run

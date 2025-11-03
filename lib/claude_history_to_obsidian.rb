@@ -30,7 +30,7 @@ class ClaudeHistoryToObsidian
     )
 
     vault_dir = ensure_directories(project_name)
-    filename = generate_filename(session_name, session_id)
+    filename = generate_filename(session_name, session_id, transcript)
     save_to_vault(vault_dir, filename, markdown)
 
     log("Successfully saved transcript: #{filename}")
@@ -134,10 +134,30 @@ class ClaudeHistoryToObsidian
     raise
   end
 
-  def generate_filename(session_name, session_id)
-    timestamp = Time.now.strftime('%Y%m%d-%H%M%S')
+  def generate_filename(session_name, session_id, transcript)
+    # セッションの最初のメッセージのタイムスタンプを使用（冪等性を保つため）
+    # なければフォールバック（Hook互換性のため）
+    timestamp = extract_session_timestamp(transcript) || Time.now.strftime('%Y%m%d-%H%M%S')
     short_id = session_id[0..7]
     "#{timestamp}_#{session_name}_#{short_id}.md"
+  end
+
+  def extract_session_timestamp(transcript)
+    # Bulk Import時: _first_message_timestamp フィールドをチェック
+    return transcript['_first_message_timestamp'] if transcript['_first_message_timestamp']
+
+    # Hook時: messages から最初のメッセージのタイムスタンプを抽出
+    messages = transcript['messages']
+    return nil unless messages && messages.length > 0
+
+    first_msg = messages.first
+    return nil unless first_msg['timestamp']
+
+    # ISO 8601形式のタイムスタンプをYYYYMMDD-HHMMSSに変換
+    Time.parse(first_msg['timestamp']).strftime('%Y%m%d-%H%M%S')
+  rescue StandardError => e
+    log("WARNING: Failed to extract session timestamp: #{e.message}")
+    nil
   end
 
   def save_to_vault(vault_dir, filename, content)

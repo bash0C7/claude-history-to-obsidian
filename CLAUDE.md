@@ -35,8 +35,9 @@ Ruby CLI tool that automatically saves Claude Code conversation transcripts to O
 - Always use: `bundle exec ruby ...`
 
 **Dependencies**:
-- Minimal: Ruby stdlib only (JSON, FileUtils, Time)
-- Optional: terminal-notifier gem for macOS notifications
+- **Runtime**: Ruby stdlib only (JSON, FileUtils, Time, Tempfile)
+- **Optional**: terminal-notifier gem for macOS notifications
+- **Development**: test-unit gem for unit testing (Test::Unit framework)
 
 ## 📋 Commands
 
@@ -56,6 +57,17 @@ cat /tmp/hook-input.json | bundle exec ruby bin/claude-history-to-obsidian
 ```
 
 **Testing**:
+
+Unit tests use Test::Unit gem:
+```bash
+# Run unit tests
+bundle exec ruby -I lib:test test/test_claude_history_importer.rb -v
+
+# All tests
+bundle exec ruby -I lib:test -rtest/unit test/**/*.rb
+```
+
+Manual testing with Hook JSON:
 ```bash
 # Create test hook input
 cat > /tmp/hook-input.json <<'EOF'
@@ -68,14 +80,14 @@ cat > /tmp/hook-input.json <<'EOF'
 }
 EOF
 
-# Create test transcript
+# Create test transcript (with timestamp in messages)
 cat > /tmp/test-transcript.json <<'EOF'
 {
   "session_id": "test123456789",
   "cwd": "/Users/bash/src/test-project",
   "messages": [
-    {"role": "user", "content": "Implementing the feature for button handling"},
-    {"role": "assistant", "content": "I'll help you implement the button handling feature..."}
+    {"role": "user", "content": "Implementing the feature for button handling", "timestamp": "2025-11-03T10:00:00.000Z"},
+    {"role": "assistant", "content": "I'll help you implement the button handling feature...", "timestamp": "2025-11-03T10:00:05.000Z"}
   ]
 }
 EOF
@@ -87,26 +99,48 @@ cat /tmp/hook-input.json | bundle exec ruby bin/claude-history-to-obsidian
 ls -la ~/Library/Mobile\ Documents/iCloud~md~obsidian/Documents/ObsidianVault/Claude\ Code/test-project/
 ```
 
+Bulk import JSONL files:
+```bash
+# Run bulk import task
+rake bulk_import
+
+# Or manually with find
+find ~/.claude/projects/ -name "*.jsonl" -type f | bundle exec ruby bin/claude-history-import | while IFS= read -r json; do echo "$json" | bundle exec ruby bin/claude-history-to-obsidian; done
+```
+
 ## 📁 Project Structure
 
 ```
 claude-history-to-obsidian/
 ├── bin/
-│   └── claude-history-to-obsidian    # Entry point (bundle exec ruby)
+│   ├── claude-history-to-obsidian    # Hook entry point (bundle exec ruby)
+│   └── claude-history-import         # Bulk import entry point (processes JSONL)
 ├── lib/
-│   └── claude_history_to_obsidian.rb # Core logic class
+│   ├── claude_history_to_obsidian.rb # Hook processing & Obsidian output
+│   └── claude_history_importer.rb    # JSONL parsing & session grouping
+├── test/
+│   └── test_claude_history_importer.rb # Unit tests (Test::Unit)
 ├── vendor/
 │   └── bundle/                        # Vendored gems (gitignored)
 ├── .ruby-version                      # 3.4.7
 ├── Gemfile
 ├── Gemfile.lock                       # Version controlled
+├── Rakefile                           # Bulk import task
 ├── .gitignore
 ├── CLAUDE.md
 └── README.md
 ```
 
-**Entry Point**: `bin/claude-history-to-obsidian`
-**Core Logic**: `lib/claude_history_to_obsidian.rb`
+**Entry Points**:
+- `bin/claude-history-to-obsidian`: Hook event processing
+- `bin/claude-history-import`: JSONL to Hook JSON conversion
+
+**Core Logic**:
+- `lib/claude_history_to_obsidian.rb`: Transcript → Markdown → Obsidian
+- `lib/claude_history_importer.rb`: JSONL → session grouping → Hook JSON
+
+**Testing**:
+- `test/test_claude_history_importer.rb`: Unit tests with Test::Unit
 
 ## 🎨 Code Style
 
@@ -358,18 +392,28 @@ end
 
 ## 🏗️ Implementation Class Structure
 
-Main class `ClaudeHistoryToObsidian`:
-- `run`: Main entry point (orchestrates workflow)
-- `load_hook_input`: Parse stdin JSON
-- `load_transcript`: Read transcript JSON from file
-- `extract_session_name`: Generate session name from content
-- `build_markdown`: Convert JSON to markdown format
+**Main class `ClaudeHistoryToObsidian`** (lib/claude_history_to_obsidian.rb):
+- `run`: Entry point - orchestrates Hook JSON → Markdown → Obsidian
+- `load_hook_input`: Parse stdin Hook JSON
+- `load_transcript`: Read transcript JSON from file (with or without timestamps)
+- `extract_session_name`: Generate session name from first user message
+- `extract_session_timestamp`: Parse timestamp from transcript messages (idempotency)
+- `generate_filename`: Create filename using session timestamp (not execution time)
+- `build_markdown`: Convert messages to markdown with User/Claude sections
 - `ensure_directories`: Create vault directory structure
 - `save_to_vault`: Write markdown to Obsidian vault
 - `notify`: Optional system notification (terminal-notifier)
 - `log`: Write to log file for debugging
 
-All private methods except `run` (which is called by bin script).
+**Importer class `ClaudeHistoryImporter`** (lib/claude_history_importer.rb):
+- `run`: Entry point - reads JSONL paths from stdin, outputs Hook JSON
+- `import_from_jsonl`: Process single JSONL file
+- `parse_and_group_sessions`: Parse JSONL lines and group by sessionId
+- `process_session`: Create Tempfile transcript and generate Hook JSON
+- `extract_first_message_timestamp`: Extract and format session timestamp
+- `log`: Write to log file for debugging
+
+All private methods except `run` (which is called by bin scripts).
 
 ## 🌳 Git Subtree Management
 

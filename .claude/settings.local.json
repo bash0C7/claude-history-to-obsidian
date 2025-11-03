@@ -11,7 +11,9 @@
       "Bash(git push:*)",
       "Bash(rake monitor:*)",
       "Bash(rake check_env:*)",
-      "Bash(bundle exec ruby:*)"
+      "Bash(bundle exec ruby:*)",
+      "Bash(xargs -I {} sh -c 'echo \"\"\"\"{}\"\"\"\" | bundle exec ruby bin/claude-history-to-obsidian 2>&1 | head -1')",
+      "Bash(rake bulk_import:*)"
     ],
     "deny": [
       "Bash(git remote remove:*)",

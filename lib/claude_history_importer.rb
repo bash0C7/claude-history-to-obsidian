@@ -23,7 +23,10 @@ class ClaudeHistoryImporter
   rescue StandardError => e
     log("ERROR: #{e.class}: #{e.message}")
     log(e.backtrace.join("\n"))
-    warn "Error processing JSONL files: #{e.message}"
+    warn "ERROR: Fatal error processing JSONL files"
+    warn "  Exception: #{e.class}"
+    warn "  Message: #{e.message}"
+    warn "  Backtrace: #{e.backtrace.first(3).join(', ')}"
   end
 
   private
@@ -31,7 +34,7 @@ class ClaudeHistoryImporter
   def import_from_jsonl(path)
     unless File.exist?(path)
       log("WARNING: JSONL file not found: #{path}")
-      warn "File not found: #{path}"
+      warn "ERROR: JSONL file not found: #{path}"
       return
     end
 
@@ -46,6 +49,9 @@ class ClaudeHistoryImporter
     log("Imported #{sessions.length} sessions from #{path}")
   rescue StandardError => e
     log("ERROR: Failed to import #{path}: #{e.message}")
+    warn "ERROR: Failed to import JSONL"
+    warn "  Path: #{path}"
+    warn "  Message: #{e.message}"
   end
 
   def parse_and_group_sessions(path)
@@ -98,6 +104,10 @@ class ClaudeHistoryImporter
     puts JSON.generate(hook_json)
   rescue StandardError => e
     log("ERROR: Failed to process session #{session_id}: #{e.message}")
+    warn "ERROR: Failed to process session"
+    warn "  Session ID: #{session_id}"
+    warn "  CWD: #{cwd}"
+    warn "  Message: #{e.message}"
   end
 
   def extract_first_message_timestamp(messages)

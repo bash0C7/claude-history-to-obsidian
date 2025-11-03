@@ -40,9 +40,34 @@ class ClaudeHistoryToObsidian
   rescue StandardError => e
     log("ERROR: #{e.class}: #{e.message}")
     log(e.backtrace.join("\n"))
-    warn "Error processing transcript: #{e.message}"
+    warn "ERROR: Failed to process and save transcript"
+    warn "  Exception: #{e.class}"
+    warn "  Message: #{e.message}"
+    warn "  Backtrace: #{e.backtrace.first(3).join(', ')}"
   ensure
     exit 0
+  end
+
+  # Bulk Import 用: Ruby から直接呼び出し（プロセス化しない）
+  def process_transcript(project_name:, cwd:, session_id:, transcript:, messages:)
+    session_name = extract_session_name(messages)
+
+    markdown = build_markdown(
+      project_name: project_name,
+      cwd: cwd,
+      session_id: session_id,
+      messages: messages
+    )
+
+    vault_dir = ensure_directories(project_name)
+    filename = generate_filename(session_name, session_id, transcript)
+    save_to_vault(vault_dir, filename, markdown)
+
+    log("Successfully imported transcript: #{filename}")
+  rescue StandardError => e
+    log("ERROR: #{e.class}: #{e.message}")
+    log(e.backtrace.join("\n"))
+    raise "Failed to process transcript: #{e.message}"
   end
 
   private
@@ -52,14 +77,18 @@ class ClaudeHistoryToObsidian
     JSON.parse(input)
   rescue JSON::ParserError => e
     log("ERROR: Failed to parse hook input JSON: #{e.message}")
-    warn "Invalid hook input JSON"
+    # デバッグ用に詳細情報を stderr に出力
+    warn "ERROR: Invalid hook input JSON"
+    warn "  Message: #{e.message}"
+    warn "  Input (first 200 chars): #{input[0..199].inspect}"
     nil
   end
 
   def load_transcript(path)
     unless File.exist?(path)
       log("WARNING: Transcript file not found: #{path}")
-      warn "Transcript file not found: #{path}"
+      warn "ERROR: Transcript file not found"
+      warn "  Path: #{path}"
       return nil
     end
 
@@ -67,7 +96,9 @@ class ClaudeHistoryToObsidian
     JSON.parse(content)
   rescue JSON::ParserError => e
     log("ERROR: Failed to parse transcript JSON: #{e.message}")
-    warn "Invalid transcript JSON: #{path}"
+    warn "ERROR: Invalid transcript JSON"
+    warn "  Path: #{path}"
+    warn "  Message: #{e.message}"
     nil
   end
 

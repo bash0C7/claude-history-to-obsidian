@@ -1,0 +1,17 @@
+GEM
+  remote: https://rubygems.org/
+  specs:
+    terminal-notifier (2.0.0)
+
+PLATFORMS
+  ruby
+  x86_64-linux
+
+DEPENDENCIES
+  terminal-notifier (~> 2.0)
+
+RUBY VERSION
+   ruby 3.3.6p108
+
+BUNDLED WITH
+   2.7.2

@@ -8,11 +8,11 @@
       "Bash(git add:*)",
       "Bash(git worktree:*)",
       "Bash(git branch:*)",
+      "Bash(git push:*)",
       "Bash(rake monitor:*)",
       "Bash(rake check_env:*)"
     ],
     "deny": [
-      "Bash(git push:*)",
       "Bash(git remote remove:*)",
       "Bash(git reflog expire:*)",
       "Bash(git filter-branch:*)",

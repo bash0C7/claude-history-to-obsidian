@@ -21,9 +21,9 @@ end
 task default: :test
 
 namespace :web do
-  desc 'Import Claude Web Export conversations.json to Obsidian (CONVERSATIONS_JSON=/path/to/file or ~/Downloads/conversations.json)'
+  desc 'Import Claude Web Export conversations.json to Obsidian (CONVERSATIONS_JSON=/path/to/file or ./conversations.json)'
   task :import_conversations do
-    conversations_json = ENV['CONVERSATIONS_JSON'] || File.expand_path('~/Downloads/conversations.json')
+    conversations_json = ENV['CONVERSATIONS_JSON'] || './conversations.json'
 
     unless File.exist?(conversations_json)
       warn "Error: #{conversations_json} does not exist"
@@ -31,29 +31,34 @@ namespace :web do
     end
 
     begin
-      # jq + filter-conversations パイプライン
-      # conversations.json → JSONL → Hook JSON → process_transcript
-      cmd = "jq -c '.[]' '#{conversations_json}' | bundle exec ruby bin/filter-conversations"
-      IO.popen(cmd, 'r') do |pipe|
-        pipe.each_line do |line|
-          next if line.strip.empty?
+      puts "📁 Reading: #{conversations_json}"
 
-          begin
-            hook_json = JSON.parse(line)
-            process_web_conversation(hook_json)
-          rescue JSON::ParserError => e
-            warn "ERROR: Failed to parse Hook JSON: #{e.message}"
-            next
-          rescue StandardError => e
-            warn "ERROR: Failed to process conversation: #{e.message}"
-            next
-          end
+      # Ruby でファイルをエンコーディング指定で読み込む（JSON 全体をパース）
+      # conversations.json (UTF-8, invalid:replace) → Ruby JSON parse → process_transcript
+      file_content = File.read(conversations_json, encoding: 'UTF-8')
+      # 無効な UTF-8 シーケンスを ? に置換
+      file_content = file_content.encode('UTF-8', invalid: :replace)
+
+      conversations = JSON.parse(file_content)
+      raise "Expected Array in conversations.json" unless conversations.is_a?(Array)
+
+      count = 0
+      conversations.each do |conversation|
+        begin
+          process_web_conversation(conversation)
+          count += 1
+          puts "✓ Processed #{count} conversations" if count % 10 == 0
+        rescue StandardError => e
+          warn "WARNING: Failed to process conversation: #{e.message}"
+          # 次の会話を処理継続（非ブロッキング）
         end
       end
 
-      exit_status = $?.exitstatus
-      raise "jq + filter-conversations failed with status #{exit_status}" unless exit_status == 0
+      puts "✓ Web import completed: #{count} conversations processed"
 
+    rescue JSON::ParserError => e
+      warn "✗ Failed to parse JSON: #{e.message}"
+      exit 1
     rescue StandardError => e
       warn "✗ Web import failed: #{e.message}"
       exit 1
@@ -63,7 +68,7 @@ end
 
 desc 'Bulk import past Claude Code sessions from ~/.claude/projects/'
 task :bulk_import do
-  projects_dir = File.expand_path('~/.claude/projects/')
+  projects_dir = ENV.fetch('CLAUDE_PROJECTS_DIR', File.expand_path('~/.claude/projects/'))
 
   unless Dir.exist?(projects_dir)
     puts "Error: #{projects_dir} does not exist"
@@ -85,13 +90,19 @@ task :bulk_import do
   begin
     # JSONL ファイルをパースしてセッションごとに処理
     Dir.glob("#{projects_dir}/**/*.jsonl").each do |jsonl_path|
+      project_name = extract_project_name(jsonl_path)
+      puts "\n📂 #{project_name}"
+
       sessions = parse_and_group_jsonl(jsonl_path)
 
       sessions.each do |session_id, session_data|
         begin
+          timestamp = extract_first_message_timestamp(session_data[:messages])
+          session_id_short = session_id[0..7]
+          puts "  #{timestamp || 'unknown'} #{session_id_short}"
+
           process_session(session_id, session_data)
           count += 1
-          puts "✓ Imported session #{count}" if count % 10 == 0
         rescue StandardError => e
           errors += 1
           warn "Error processing session #{session_id}: #{e.message}"
@@ -99,7 +110,7 @@ task :bulk_import do
       end
     end
 
-    puts "✓ Bulk import completed: #{count} sessions imported, #{errors} errors"
+    puts "\n✓ Bulk import completed: #{count} sessions imported, #{errors} errors"
   rescue StandardError => e
     puts "✗ Bulk import failed: #{e.message}"
     exit 1
@@ -187,11 +198,32 @@ rescue StandardError => e
   nil
 end
 
-def process_web_conversation(hook_json)
-  session_id = hook_json['session_id']
-  transcript = hook_json['transcript']
-  cwd = hook_json['cwd']
-  conversation_name = hook_json['conversation_name'] || 'conversation'
+def process_web_conversation(conversation)
+  # conversations.json のオブジェクトから必要な情報を抽出
+  session_id = conversation['uuid']
+  conversation_name = conversation['name'] || 'conversation'
+  chat_messages = conversation['chat_messages'] || []
+
+  # 空の会話はスキップ
+  return if chat_messages.empty?
+
+  # chat_messages を transcript 形式に変換
+  messages = chat_messages.map do |msg|
+    {
+      'role' => msg['role'],
+      'content' => msg['content'],
+      'timestamp' => msg['created_at']
+    }
+  end
+
+  # トランスクリプトを生成
+  timestamp = extract_first_message_timestamp(messages)
+  transcript = {
+    'session_id' => session_id,
+    'cwd' => Dir.pwd,
+    'messages' => messages,
+    '_first_message_timestamp' => timestamp
+  }.compact
 
   # conversation_name をスラッグ化して project_name として使用
   project_name = slugify_name(conversation_name)
@@ -199,11 +231,20 @@ def process_web_conversation(hook_json)
   processor = ClaudeHistoryToObsidian.new
   processor.process_transcript(
     project_name: project_name,
-    cwd: cwd,
+    cwd: Dir.pwd,
     session_id: session_id,
     transcript: transcript,
-    messages: transcript['messages']
+    messages: messages
   )
+end
+
+def extract_project_name(jsonl_path)
+  # ~/.claude/projects/{project-name}/{file}.jsonl からproject-nameを抽出
+  parts = jsonl_path.split('/')
+  projects_index = parts.index('projects')
+  return 'unknown' unless projects_index
+
+  parts[projects_index + 1] || 'unknown'
 end
 
 def slugify_name(name)

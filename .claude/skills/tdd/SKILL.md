@@ -21,6 +21,50 @@ Use this skill when:
 
 ## TDD Workflow
 
+### Phase 0: Test Initialization Verification ⚠️ (MANDATORY)
+
+**BEFORE starting TDD, ALWAYS verify current test status.**
+
+This step guarantees that you're starting from a GREEN state (not RED).
+
+#### Initialization Checklist
+
+1. **Run ALL tests**:
+   ```bash
+   bundle exec ruby -I lib:test -rtest/unit test/**/*.rb
+   ```
+
+2. **Verify Results**:
+   - ✅ **All tests PASS**: Proceed to Phase 1 (Test List Creation)
+   - ❌ **Any test FAILS**: STOP and return to user
+     - There's a pre-existing issue in the codebase
+     - Must be resolved BEFORE starting TDD
+     - Report failure details to user
+
+3. **Document Initial State**:
+   - Note total test count
+   - Note overall pass rate
+   - This becomes your baseline
+
+#### Why This Phase Exists
+
+**Philosophy**: RED-GREEN-REFACTOR assumes you start from GREEN.
+
+- If tests are already RED, you can't distinguish:
+  - Tests failing due to your new code? (Normal)
+  - Tests failing due to pre-existing issue? (Problem)
+- RED phase becomes ambiguous
+- New test failure is indistinguishable from existing failures
+
+#### Implementation Notes
+
+- Use subagent to run tests automatically
+- Stop immediately if any test is RED
+- Inform user of pre-existing issues
+- Do NOT proceed with TDD until state is GREEN
+
+---
+
 ### Phase 1: Test List Creation
 
 #### Step 1: Create Test List (TODO List)
@@ -477,6 +521,27 @@ end
 - Misses the design benefits
 - Less effective at catching bugs
 
+❌ **Modifying production code/config before writing tests**
+- Plan → Code → Test is Test-Last Development
+- You MUST write test BEFORE touching production code
+- You MUST write test BEFORE modifying config files
+- If you discover failure after implementation, you're doing it wrong
+- **改修計画 = テストコード** (Implementation plan = Test code)
+
+**Correct workflow**:
+1. Plan the change (understand requirement)
+2. Write test expressing the plan
+3. Run test to see RED
+4. Modify production code or config files
+5. Run test to see GREEN
+6. Refactor
+
+**Wrong workflow**:
+1. ❌ Modify production code/config
+2. ❌ Run test
+3. ❌ Discover failure
+4. ❌ Fix test or code
+
 ❌ **Skipping RED phase**
 - Always run tests and see them fail first
 - Ensures tests work correctly
@@ -723,3 +788,110 @@ assert_false(value)                  # value must be false
 6. **Start applying to real features** in this project
 
 Remember: TDD is a skill that improves with practice. Start small, be patient with yourself, and embrace the rhythm of RED-GREEN-REFACTOR.
+
+---
+
+## 🚀 Implementation: Automatic Test Verification
+
+### When TDD Skill is Invoked
+
+**Automatic Process**:
+
+1. **Phase 0 Execution** (Mandatory):
+   ```
+   1. Run: bundle exec ruby -I lib:test -rtest/unit test/**/*.rb
+   2. Parse output for pass/fail status
+   3. If PASS → Continue to Phase 1
+   4. If FAIL → Stop and report to user
+   ```
+
+2. **Report Baseline State**:
+   ```
+   ✅ Current Test Status:
+   - Total Tests: N
+   - Assertions: N
+   - Pass Rate: 100%
+
+   ✔️ GREEN baseline established. Ready for TDD.
+   ```
+
+3. **If Tests FAIL**:
+   ```
+   ❌ Pre-existing Test Failure Detected:
+
+   [Show failing test details]
+
+   🛑 STOP: Cannot start TDD with RED tests.
+
+   Action Required:
+   - Fix failing tests first
+   - Re-run to establish GREEN baseline
+   - Then contact me to continue TDD
+   ```
+
+### TodoWrite Integration
+
+Phase 0 results feed into TodoWrite:
+
+```
+1. ✅ [Verify test baseline is GREEN]
+2. [ ] [RED: Write failing test for feature]
+   (This only becomes active if Phase 0 passes)
+3. [ ] [GREEN: Implement code]
+4. [ ] [REFACTOR: Improve structure]
+```
+
+If Phase 0 fails:
+```
+⚠️ Pre-requisite Issue: Test baseline is RED
+- Task list creation BLOCKED
+- User intervention needed
+```
+
+### User Communication
+
+**Success Case**:
+```
+✔️ Phase 0: Test Initialization Verification PASSED
+
+Baseline Status:
+- 9 tests, 24 assertions
+- 100% pass rate
+
+Now proceeding to Phase 1: Test List Creation...
+```
+
+**Failure Case**:
+```
+❌ Phase 0: Test Initialization Verification FAILED
+
+Pre-existing failures detected:
+- test_claude_history_importer.rb: 2 failures
+- test_claude_history_to_obsidian.rb: 1 failure
+
+🛑 Cannot start TDD with RED tests.
+
+Next Steps:
+1. Review error details above
+2. Fix failing tests
+3. Run tests again: bundle exec ruby -I lib:test -rtest/unit test/**/*.rb
+4. Once all tests pass, contact me to continue TDD
+```
+
+---
+
+## Critical Rule: GREEN Before RED
+
+**Never skip Phase 0**. This rule prevents:
+- ❌ Confusing pre-existing failures with new failures
+- ❌ Writing RED tests for already-broken code
+- ❌ Misalignment between test and code changes
+- ❌ Loss of development momentum
+
+**Always**:
+1. Verify GREEN baseline
+2. Write RED test (one at a time)
+3. Write GREEN implementation
+4. REFACTOR while green
+
+**If Phase 0 fails**: Stop immediately, report to user, fix issues first.

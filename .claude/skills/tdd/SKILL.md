@@ -65,6 +65,31 @@ This step guarantees that you're starting from a GREEN state (not RED).
 
 ---
 
+### Phase 0.5: Plan Revision (計画の再考)
+
+**AFTER Phase 0 GREEN, BEFORE Phase 1**
+
+Now that Phase 0 confirms GREEN baseline, re-examine your implementation plan:
+
+1. **Review actual codebase**:
+   - What does the code actually look like NOW?
+   - What dependencies exist?
+   - What patterns are already used?
+
+2. **Adjust plan based on reality**:
+   - Your initial plan may have assumptions
+   - The actual code may suggest simpler paths
+   - Look for existing helper methods to reuse
+
+3. **Keep it SIMPLE**:
+   - The plan should be straightforward
+   - If something seems complex, reconsider
+   - "Initial plans are typically flawed" (t-wada)
+
+**This is NOT overthinking - this is being practical with the actual code**
+
+---
+
 ### Phase 1: Test List Creation
 
 #### Step 1: Create Test List (TODO List)
@@ -602,16 +627,53 @@ end
 3. Ensure you're running the right test file
 4. Try: `bundle exec ruby -I lib:test test/test_*.rb -v`
 
-### Stuck in GREEN (Can't make test pass)
+### Stuck in GREEN (Can't make test pass) - 計画誤りの診断
 
 **Symptom**: Test fails but can't figure out implementation
 
-**Solutions**:
-1. **Reduce step size**: Break test into smaller pieces
-2. **Use Fake It**: Return hardcoded value
-3. **Add more context**: What are you uncertain about?
-4. **Try Triangulation**: Add another test case first
-5. **Take a break**: Sometimes fresh eyes help
+**Root Cause Analysis** (CRITICAL):
+- ❌ **Never assume**: "The implementation is too hard"
+- ✅ **Always ask**: "Is the plan missing something?"
+
+**Why Plans Fail**:
+1. **Edge case not considered** - Plan assumes simpler input
+2. **Dependency not modeled** - Plan forgot about interaction with other code
+3. **State not initialized** - Plan assumes setup that wasn't done
+4. **Assumption about API** - Plan misunderstood how method should work
+
+**Diagnosis Process**:
+
+1. **Re-read the RED test failure carefully**:
+   - What exactly is failing?
+   - What does the error message say?
+   - Is it a logic error or a structural error?
+
+2. **Check if plan has gaps**:
+   - Does the test expect something plan didn't account for?
+   - Is there an existing method/pattern in code plan missed?
+   - Are there dependencies plan overlooked?
+
+3. **Look for SIMPLE solutions first**:
+   - Can you add 1-2 lines to fix it?
+   - Can you reuse existing code in a different way?
+   - Is there a helper method already available?
+
+**Solutions** (in order):
+1. **Examine the actual error**: What's the test really expecting?
+2. **Revise plan**: Add the missing piece (usually small)
+3. **Use Fake It**: Return hardcoded value matching what test expects
+4. **Reduce step size**: Break test into even smaller pieces
+5. **Try Triangulation**: Add another test case first
+
+**⚠️ RED FLAG (Consider Plan Wrong)**:
+- If you're thinking of a "big architectural change"
+- If you're considering "refactoring multiple files"
+- If you're thinking "maybe we need a new class"
+- If the solution feels "clever" or "complex"
+
+**This means your plan is wrong, not that the code is complex.**
+
+Find the simple gap in the plan first!
 
 ### Stuck in REFACTOR (Risk of breaking tests)
 
@@ -895,3 +957,93 @@ Next Steps:
 4. REFACTOR while green
 
 **If Phase 0 fails**: Stop immediately, report to user, fix issues first.
+
+---
+
+## 🔴 When Test Won't Go GREEN: Plan Examination Protocol
+
+This is when your TDD discipline matters most.
+
+### The Trap: Overcomplicating
+
+When a test won't pass, there are two thinking patterns:
+
+❌ **WRONG**: "The implementation is complex. I need a clever solution."
+```
+Result: 30 minutes of overthinking
+Solution: Convoluted code that barely passes
+Next problem: Breaks other tests
+```
+
+✅ **RIGHT**: "The test won't pass. My plan must be missing something."
+```
+Result: 5 minutes of careful re-reading
+Solution: Simple fix that follows plan
+Next problem: No surprises
+```
+
+### Plan Examination (when GREEN fails)
+
+**Before you write code**:
+
+1. **Read RED test output word-for-word**
+   - What assertion failed?
+   - What did it expect?
+   - What did it get?
+
+2. **Ask these questions**:
+   - Did the plan account for this edge case?
+   - Does the plan assume something that's not true?
+   - Is there existing code doing similar things?
+   - Did the plan miss a dependency?
+
+3. **Look for the missing piece** (not the missing genius):
+   - One method to add?
+   - One parameter to pass?
+   - One edge case to handle?
+   - One helper to call?
+
+**90% of the time**, the gap is simple.
+
+### When Solution Feels Complicated
+
+**RED FLAGS** (Plan is probably wrong):
+- "I need to refactor multiple files"
+- "I need to create a new class"
+- "I need to change the architecture"
+- "This is a really clever solution"
+- "I'm not sure why this works"
+
+**What to do**:
+1. **Stop. Step back.**
+2. **Re-read the test**
+3. **Re-examine the plan**
+4. **Look for the simple gap**
+
+The gap is usually small. Acrobatic solutions mean wrong plan.
+
+### Example
+
+**❌ Wrong Thinking**:
+```
+Test expects: method to handle nil input gracefully
+Current impl: crashes on nil
+Thought: "Maybe I need to redesign the whole class"
+Actually: Just need: if obj.nil? { return default_value }
+```
+
+**✅ Right Thinking**:
+1. Test fails with "undefined method on NilClass"
+2. Plan didn't account for nil input
+3. Add nil check (1 line)
+4. Test passes
+
+### Remember
+
+- **Plans have gaps. That's normal.**
+- **Gaps are usually small.**
+- **Acrobatic solutions = plan is wrong.**
+- **Re-examine the plan before writing clever code.**
+- **Simple solutions almost always work.**
+
+The t-wada principle: Iterate and learn. If something feels hard, the plan is probably incomplete.

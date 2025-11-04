@@ -88,22 +88,59 @@ tail -f ~/.local/var/log/claude-history-to-obsidian.log
 
 ### ⚠️ TEST-FIRST PRINCIPLE (絶対厳守)
 
-**This project strictly enforces Test-First Development:**
+**This project strictly enforces Test-First Development with three critical rules:**
 
-1. **ALWAYS write tests BEFORE production code or config files**
-2. **改修計画 = テストコード** (Implementation plan = Test code)
-3. **RED → GREEN → REFACTOR** (Never skip RED phase)
+#### Rule 1: Phase 0 GREEN Verification
 
-**Workflow**:
+**BEFORE starting TDD, ALWAYS verify test baseline is GREEN:**
+```bash
+bundle exec ruby -I lib:test -rtest/unit test/**/*.rb
 ```
-Plan → Write Test → Run (RED) → Write Code → Run (GREEN) → Refactor
+
+- ✅ All tests PASS → Continue to TDD
+- ❌ Any test FAILS → STOP, report to user, fix first
+
+This ensures you start from a known-good state.
+
+#### Rule 2: Plan Revision After Phase 0
+
+**After Phase 0 GREEN, re-examine your implementation plan:**
+
+1. Look at actual codebase (not assumptions)
+2. Find simpler paths using existing patterns
+3. Revise plan based on reality
+
+"Initial plans are typically flawed" (t-wada) - use actual code to refine.
+
+#### Rule 3: When GREEN Won't Pass - Examine Plan
+
+**If RED test won't go GREEN:**
+
+1. **Don't assume code is complex** - assume plan is incomplete
+2. **Examine RED output carefully** - what's actually missing?
+3. **Look for simple gaps** - usually 1-2 lines or 1 missing dependency
+4. **RED FLAG warning**: If solution feels "acrobatic" or "clever", plan is wrong
+
+**Remember**: Plans have gaps. That's normal. Gaps are usually small. Acrobatic solutions = plan incomplete.
+
+See `@.claude/practices.md` and `@.claude/skills/tdd/SKILL.md` for details on Phase 0, Plan Revision, and Plan Examination.
+
+---
+
+**TDD Workflow**:
+```
+Phase 0: Verify GREEN baseline
+Phase 0.5: Revise plan using actual code
+Phase 1: Write test (RED)
+Phase 2: Write code (GREEN) - examine plan if stuck
+Phase 3: Refactor (REFACTOR)
 ```
 
 **❌ FORBIDDEN**:
 - Modifying production code/config files before writing tests
 - Discovering failures after implementation (Test-Last Development)
-
-See `@.claude/practices.md` and `@.claude/skills/tdd/SKILL.md` for details.
+- Skipping Phase 0 (will be caught by automation)
+- Acrobatic solutions instead of simple plan fixes
 
 ---
 

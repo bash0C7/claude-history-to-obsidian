@@ -186,6 +186,151 @@ bundle exec ruby -I lib:test -rtest/unit test/**/*.rb
 
 ---
 
+## Phase 0.5: Plan Revision (計画の再考)
+
+**After Phase 0 GREEN, before writing any tests**
+
+Your initial plan was made without seeing the code. Now that you've verified GREEN:
+
+### What to Do
+
+1. **Open the actual codebase**
+   - Look at the files you'll modify
+   - See what methods/patterns already exist
+   - Check what dependencies are available
+
+2. **Ask these questions**:
+   - Is there an existing helper I can use?
+   - Are there similar patterns I can follow?
+   - Did I assume something that's not how the code actually works?
+   - Are there simpler paths now that I see the real code?
+
+3. **Revise your test list**:
+   - Remove tests for functionality that already exists
+   - Simplify tests based on actual patterns
+   - Add tests for edge cases you discover
+   - Reorder by simplicity with actual code in mind
+
+### Why This Matters
+
+"Initial plans are typically flawed" (t-wada) - This step makes plans reality-based instead of assumption-based.
+
+**Example**:
+```
+Initial plan: "Create method to validate and save user"
+After seeing code: "Oh, there's already a save method.
+                    Just need to add validation to existing method."
+Revised plan: "Add validation to existing save method" (simpler!)
+```
+
+---
+
+## When GREEN Won't Pass: Plan Examination (計画の吟味)
+
+**This is the most critical TDD skill - distinguishing plan gaps from code complexity.**
+
+### The Mental Trap
+
+When a test fails and you can't figure out the code:
+
+**❌ Wrong thinking**: "This implementation is complex. I need a clever solution."
+- Results in 30 minutes of overthinking
+- Code becomes convoluted
+- Often breaks other tests
+
+**✅ Right thinking**: "The test won't pass. What's missing from my plan?"
+- Results in 5 minutes of careful re-reading
+- Code is simple and follows plan
+- No surprises in next tests
+
+### Diagnosis Process
+
+1. **Stop writing code**
+
+2. **Read the RED test failure carefully**
+   - What assertion failed?
+   - What did it expect?
+   - What did it actually get?
+
+3. **Ask: Is this a plan gap?**
+   - Did the plan account for this input?
+   - Does the plan assume something that's not true?
+   - Is there an interaction with other code plan missed?
+   - Did the plan skip an initialization step?
+
+4. **Look for ONE simple gap**
+   - Add 1-2 lines to handle edge case?
+   - Call a helper method plan didn't mention?
+   - Check for nil/empty case?
+   - Reorder initialization steps?
+
+**90% of the time, the answer is simple.**
+
+### RED FLAGS (Plan is Wrong, Not Code Complex)
+
+If you're thinking any of these, STOP and re-examine the plan:
+
+- "I need to refactor multiple files"
+- "I need to create a new class"
+- "I need to change the architecture"
+- "This is a really clever/elegant solution"
+- "I'm not sure why this works, but it does"
+- "This solution is general-purpose"
+
+**These all mean your plan is incomplete, not that code is complex.**
+
+### Example: The nil Case
+
+**Scenario**:
+```ruby
+# Test: validate_email("")
+# Current: crashes with "undefined method on NilClass"
+# Initial thought: "Maybe I need to redesign validation system"
+# Actually: Plan forgot about empty/nil input
+```
+
+**Red examination**:
+1. Error is about NilClass
+2. Plan assumed input is always valid string
+3. Simple fix: Add nil check (1 line)
+
+```ruby
+def validate_email(email)
+  return false if email.nil? || email.empty?
+  email.include?('@')
+end
+```
+
+### The Simple Gap Rule
+
+Plans always have gaps. This is normal, not a failure of planning.
+
+Most gaps are:
+- ✅ Edge case (nil, empty, -1)
+- ✅ State not initialized
+- ✅ Dependency not called
+- ✅ Method signature slightly different
+
+Rarely gaps are:
+- ❌ Whole new class needed
+- ❌ Architecture redesign
+- ❌ Complex algorithm required
+
+If you find a "rarely gap", your plan is probably wrong.
+
+### Recovery Process
+
+When stuck on GREEN:
+
+1. **Revert your attempted code** (if written)
+2. **Re-read test failure carefully**
+3. **Re-examine plan** - where's the gap?
+4. **Look for simple fix** (1-2 lines usually)
+5. **Check existing code** - is there a helper?
+6. **If still stuck**: Reduce step size, use Fake It
+
+---
+
 ## 🌳 Git Subtree Management
 
 This project can be embedded in other repositories using `git subtree` for multi-repo management and synchronization.

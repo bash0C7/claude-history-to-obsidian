@@ -140,10 +140,10 @@ class ClaudeHistoryToObsidian
     messages.each do |msg|
       role = msg['role']
       content = msg['content']
-      
-      # content が配列形式の場合（Claude Code API形式）、テキストを抽出
+
+      # content が配列形式の場合（conversations.json形式）、ブロックごとに処理
       if content.is_a?(Array)
-        content = content.map { |c| c.is_a?(Hash) && c['type'] == 'text' ? c['text'] : c.to_s }.join("\n")
+        content = format_content_blocks(content)
       end
 
       if role == 'user'
@@ -161,6 +161,39 @@ class ClaudeHistoryToObsidian
         output << "---"
         output << ""
       end
+    end
+
+    output.join("\n")
+  end
+
+  # Content配列（conversations.json形式）をMarkdownブロック形式に変換
+  def format_content_blocks(blocks)
+    output = []
+
+    # ブロックタイプのマッピング（タイプ → [絵文字, ラベル, キー]）
+    block_map = {
+      'thinking' => ['💭', '思考', 'thinking'],
+      'text' => ['💬', '回答', 'text'],
+      'input' => ['⌨️', '入力', 'text']
+    }
+
+    blocks.each do |block|
+      next unless block.is_a?(Hash)
+
+      block_type = block['type']
+      block_config = block_map[block_type]
+
+      # signature や未定義型はスキップ
+      next if block_config.nil?
+
+      emoji, label, content_key = block_config
+      content_text = block[content_key] || ''
+      content_text = content_text.gsub('\\n', "\n") if content_text.is_a?(String)
+
+      output << "### #{emoji} #{label}"
+      output << ""
+      output << content_text
+      output << ""
     end
 
     output.join("\n")

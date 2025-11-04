@@ -1,0 +1,210 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require 'json'
+require 'time'
+
+class ConversationFilter
+  def initialize(input_source)
+    @input_source = input_source # ファイルパスまたは :stdin
+  end
+
+  # JSONL形式（1行1オブジェクト）から Hook JSON 形式に変換して出力
+  # stdin から1行ずつ読み込んで処理（メモリ効率的）
+  # 用途: jq -c '.[]' conversations.json | ruby bin/filter-conversations
+  def process_jsonl(options = {})
+    keywords = options[:keywords] || []
+    days_ago = options[:days_ago] || 365
+    min_date = Time.now - (days_ago * 24 * 3600)
+
+    input_stream = @input_source == :stdin ? $stdin : File.open(@input_source, 'r')
+
+    input_stream.each_line do |line|
+      next if line.strip.empty?
+
+      begin
+        conversation = JSON.parse(line)
+        next unless should_include?(conversation, keywords, min_date)
+
+        hook_json = convert_to_hook_json(conversation)
+        puts JSON.generate(hook_json)
+      rescue JSON::ParserError => e
+        warn "WARNING: Failed to parse line: #{e.message}"
+        next
+      end
+    end
+
+    input_stream.close if @input_source != :stdin
+  rescue StandardError => e
+    warn "ERROR: Failed to process: #{e.message}"
+    exit 1
+  end
+
+  # ファイル入力用（従来の互換性）
+  def to_jsonl
+    unless File.exist?(@input_source)
+      warn "ERROR: File not found: #{@input_source}"
+      exit 1
+    end
+
+    File.open(@input_source, 'r') do |file|
+      data = JSON.parse(file.read)
+      data.each do |conversation|
+        puts JSON.generate(conversation)
+      end
+    end
+  rescue JSON::ParserError => e
+    warn "ERROR: Failed to parse JSON: #{e.message}"
+    exit 1
+  end
+
+  # conversations.json をフィルタして Hook JSON 形式で出力（ファイル入力版）
+  def filter_and_convert(options = {})
+    unless File.exist?(@input_source)
+      warn "ERROR: File not found: #{@input_source}"
+      exit 1
+    end
+
+    keywords = options[:keywords] || []
+    days_ago = options[:days_ago] || 365
+    min_date = Time.now - (days_ago * 24 * 3600)
+
+    File.open(@input_source, 'r') do |file|
+      data = JSON.parse(file.read)
+      data.each do |conversation|
+        next unless should_include?(conversation, keywords, min_date)
+
+        hook_json = convert_to_hook_json(conversation)
+        puts JSON.generate(hook_json)
+      end
+    end
+  rescue JSON::ParserError => e
+    warn "ERROR: Failed to parse JSON: #{e.message}"
+    exit 1
+  end
+
+  private
+
+  def should_include?(conversation, keywords, min_date)
+    # 空の会話はスキップ
+    return false if conversation['chat_messages'].empty?
+
+    # 日付フィルタ
+    updated_at = Time.parse(conversation['updated_at'])
+    return false if updated_at < min_date
+
+    # キーワードフィルタ
+    if keywords.any?
+      conversation_text = "#{conversation['summary']} #{conversation['name']}"
+      return false unless keywords.any? { |kw| conversation_text.include?(kw) }
+    end
+
+    true
+  end
+
+  def convert_to_hook_json(conversation)
+    {
+      session_id: conversation['uuid'],
+      transcript: convert_transcript(conversation),
+      cwd: '/Users/bash/src/claude-web-export',
+      permission_mode: 'default',
+      hook_event_name: 'Stop'
+    }
+  end
+
+  def convert_transcript(conversation)
+    messages = conversation['chat_messages'].map do |chat_msg|
+      {
+        role: chat_msg['sender'] == 'human' ? 'user' : 'assistant',
+        content: extract_content(chat_msg),
+        timestamp: chat_msg['created_at']
+      }
+    end
+
+    {
+      session_id: conversation['uuid'],
+      cwd: '/Users/bash/src/claude-web-export',
+      messages: messages,
+      _first_message_timestamp: Time.parse(conversation['created_at']).strftime('%Y%m%d-%H%M%S')
+    }
+  end
+
+  def extract_content(chat_msg)
+    # chat_msg['content'] は配列形式（conversations.json形式）
+    chat_msg['content'].is_a?(Array) ? chat_msg['content'] : (chat_msg['text'] || '')
+  end
+end
+
+# ==================== メイン ====================
+
+if __FILE__ == $0
+  require 'optparse'
+
+  options = {
+    mode: 'streaming',
+    keywords: [],
+    days_ago: 365
+  }
+
+  OptionParser.new do |opts|
+    opts.banner = 'Usage: filter-conversations [<json_file>] [options]'
+    opts.separator ''
+    opts.separator 'Modes:'
+    opts.separator '  Default (no args):  Streaming JSONL from stdin (from jq)'
+    opts.separator '  <file> --mode jsonl: File input, output JSONL'
+    opts.separator '  <file> --mode hook:  File input, output Hook JSON'
+
+    opts.on('--mode MODE', 'Output mode: streaming|jsonl|hook (default: streaming)') do |m|
+      options[:mode] = m
+    end
+
+    opts.on('--keywords WORDS', 'Filter by keywords (comma-separated)') do |w|
+      options[:keywords] = w.split(',').map(&:strip)
+    end
+
+    opts.on('--days-ago N', Integer, 'Include conversations updated in last N days (default: 365)') do |d|
+      options[:days_ago] = d
+    end
+
+    opts.on('--help', 'Show this message') do
+      puts opts
+      exit
+    end
+  end.parse!(ARGV)
+
+  # 入力ソース決定
+  if ARGV.empty?
+    # パイプ入力モード（stdin から JSONL を読み込み）
+    input_source = :stdin
+    options[:mode] = 'streaming' if options[:mode] == 'streaming'
+  else
+    # ファイル入力モード
+    json_file = ARGV[0]
+    unless File.exist?(json_file)
+      warn "ERROR: JSON file not found: #{json_file}"
+      exit 1
+    end
+    input_source = json_file
+  end
+
+  filter = ConversationFilter.new(input_source)
+
+  case options[:mode]
+  when 'streaming'
+    # stdin から JSONL を読み込み、Hook JSON で出力
+    filter.process_jsonl(
+      keywords: options[:keywords],
+      days_ago: options[:days_ago]
+    )
+  when 'jsonl'
+    filter.to_jsonl
+  when 'hook'
+    filter.filter_and_convert(
+      keywords: options[:keywords],
+      days_ago: options[:days_ago]
+    )
+  else
+    warn "ERROR: Unknown mode: #{options[:mode]}"
+    exit 1
+  end
+end

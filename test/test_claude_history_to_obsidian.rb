@@ -196,6 +196,112 @@ class TestClaudeHistoryToObsidian < Test::Unit::TestCase
     assert user_pos2 < assistant_pos2, 'Second user before second assistant'
   end
 
+  def test_build_markdown_with_content_array_blocks
+    processor = ClaudeHistoryToObsidian.new
+    messages = [
+      {
+        'role' => 'user',
+        'content' => 'Translate this text'
+      },
+      {
+        'role' => 'assistant',
+        'content' => [
+          {
+            'type' => 'thinking',
+            'thinking' => 'この翻訳は複雑です\n複数行の思考です',
+            'start_timestamp' => '2025-10-29T12:09:42Z',
+            'stop_timestamp' => '2025-10-29T12:09:48Z'
+          },
+          {
+            'type' => 'text',
+            'text' => '翻訳結果\n複数行のテキストです',
+            'citations' => []
+          }
+        ]
+      }
+    ]
+
+    markdown = processor.send(:build_markdown,
+      project_name: 'test-project',
+      cwd: '/test/project',
+      session_id: 'abc123',
+      messages: messages)
+
+    # thinking ブロックが分離されて表示される
+    assert_include markdown, '💭 思考'
+    assert_include markdown, 'この翻訳は複雑です'
+    assert_include markdown, '複数行の思考です'
+
+    # text ブロックが分離されて表示される
+    assert_include markdown, '💬 回答'
+    assert_include markdown, '翻訳結果'
+    assert_include markdown, '複数行のテキストです'
+
+    # 改行が正しく処理されている（\n が実改行に）
+    assert_include markdown, "複雑です\n複数行"
+  end
+
+  def test_build_markdown_filters_out_signature_blocks
+    processor = ClaudeHistoryToObsidian.new
+    messages = [
+      {
+        'role' => 'assistant',
+        'content' => [
+          {
+            'type' => 'text',
+            'text' => 'Response text'
+          },
+          {
+            'type' => 'signature',
+            'text' => 'Claude signature here'
+          }
+        ]
+      }
+    ]
+
+    markdown = processor.send(:build_markdown,
+      project_name: 'test-project',
+      cwd: '/test/project',
+      session_id: 'abc123',
+      messages: messages)
+
+    # signature が含まれていないことを確認
+    assert_not_include markdown, 'Claude signature here'
+    assert_not_include markdown, '署名'
+
+    # text は含まれている
+    assert_include markdown, 'Response text'
+  end
+
+  def test_build_markdown_handles_input_blocks
+    processor = ClaudeHistoryToObsidian.new
+    messages = [
+      {
+        'role' => 'assistant',
+        'content' => [
+          {
+            'type' => 'text',
+            'text' => 'Here is the code:'
+          },
+          {
+            'type' => 'input',
+            'text' => 'code_example = "hello"'
+          }
+        ]
+      }
+    ]
+
+    markdown = processor.send(:build_markdown,
+      project_name: 'test-project',
+      cwd: '/test/project',
+      session_id: 'abc123',
+      messages: messages)
+
+    # input ブロックが表示される
+    assert_include markdown, '⌨️ 入力'
+    assert_include markdown, 'code_example = "hello"'
+  end
+
   # Phase 2: ファイルI/Oテスト
 
   def test_load_hook_input_with_valid_json

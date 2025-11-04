@@ -153,12 +153,18 @@ class ClaudeHistoryToObsidian
     output << ""
 
     messages.each do |msg|
+      # signature フィールドはスキップ（トレース情報、出力対象外）
+      next if msg['signature']
+
       role = msg['role']
       content = msg['content']
 
       # content が配列形式の場合（conversations.json形式）、ブロックごとに処理
       if content.is_a?(Array)
         content = format_content_blocks(content)
+      elsif content.is_a?(String)
+        # 文字列の場合、\n（エスケープされた改行）を実際の改行に変換
+        content = content.gsub('\\n', "\n")
       end
 
       if role == 'user'

@@ -107,6 +107,7 @@ class ConversationFilter
       session_id: conversation['uuid'],
       transcript: convert_transcript(conversation),
       cwd: '/Users/bash/src/claude-web-export',
+      conversation_name: conversation['name'] || 'conversation',
       permission_mode: 'default',
       hook_event_name: 'Stop'
     }

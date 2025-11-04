@@ -110,7 +110,22 @@ class ClaudeHistoryToObsidian
     first_user_msg = messages.find { |m| m['role'] == 'user' }
     return 'session' unless first_user_msg && first_user_msg['content']
 
-    text = first_user_msg['content']
+    content = first_user_msg['content']
+
+    # content が配列形式の場合（conversations.json形式）、テキストを抽出
+    if content.is_a?(Array)
+      text_parts = content.map do |block|
+        if block.is_a?(Hash) && block['type'] == 'text'
+          block['text']
+        elsif block.is_a?(String)
+          block
+        end
+      end.compact
+      text = text_parts.join(" ")
+    else
+      text = content
+    end
+
     first_line = text.split("\n").first || ''
     name = first_line[0..29]
 
@@ -257,16 +272,47 @@ class ClaudeHistoryToObsidian
     end
   end
 
+  public
+
   def log(message)
     log_dir = File.dirname(LOG_FILE_PATH)
     FileUtils.mkdir_p(log_dir) unless Dir.exist?(log_dir)
 
     timestamp = Time.now.strftime('%Y-%m-%d %H:%M:%S')
+    formatted_message = format_log_message(message)
+
     File.open(LOG_FILE_PATH, 'a') do |f|
-      f.puts "[#{timestamp}] #{message}"
+      f.puts "[#{timestamp}] #{formatted_message}"
     end
   rescue StandardError => e
     warn "Failed to write log: #{e.message}"
+  end
+
+  private
+
+  def format_log_message(message)
+    case message
+    when Hash, Array
+      # JSONはpretty printで整形。複数行の場合はインデント付き
+      json_str = JSON.pretty_generate(message)
+      indent_multiline(json_str)
+    when String
+      if message.include?("\n")
+        # 複数行文字列はインデント付きで出力
+        indent_multiline(message)
+      else
+        message
+      end
+    else
+      message.to_s
+    end
+  end
+
+  def indent_multiline(text)
+    lines = text.lines.map(&:chomp)
+    lines.map.with_index do |line, index|
+      index.zero? ? line : "  #{line}"
+    end.join("\n")
   end
 
   def macos?

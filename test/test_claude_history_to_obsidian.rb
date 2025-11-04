@@ -812,4 +812,133 @@ class TestClaudeHistoryToObsidian < Test::Unit::TestCase
     end
   end
 
+  # TEST: format_log_message メソッド（JSON pretty print）
+  def test_format_log_message_with_hash
+    processor = ClaudeHistoryToObsidian.new
+
+    hash_message = {
+      'session_id' => 'test123',
+      'cwd' => '/test/path',
+      'messages' => [
+        {'role' => 'user', 'content' => 'hello'}
+      ]
+    }
+
+    result = processor.send(:format_log_message, hash_message)
+
+    # JSON が pretty print されていることを確認
+    assert result.include?('"session_id": "test123"'), 'Should pretty print JSON with quotes'
+    assert result.include?("\n"), 'Should have newlines for pretty print'
+    # インデント付きで出力される（2行目以降は2スペースのインデント）
+    lines = result.lines
+    assert lines[1].start_with?('  '), 'Second line should be indented with 2 spaces'
+  end
+
+  # TEST: format_log_message メソッド（複数行文字列）
+  def test_format_log_message_with_multiline_string
+    processor = ClaudeHistoryToObsidian.new
+
+    multiline_message = "line1\nline2\nline3"
+    result = processor.send(:format_log_message, multiline_message)
+
+    # 複数行文字列がインデント付きで出力されることを確認
+    lines = result.lines.map(&:chomp)
+    assert_equal 'line1', lines[0], 'First line should not be indented'
+    assert_equal '  line2', lines[1], 'Second line should be indented with 2 spaces'
+    assert_equal '  line3', lines[2], 'Third line should be indented with 2 spaces'
+  end
+
+  # TEST: format_log_message メソッド（単一行文字列）
+  def test_format_log_message_with_single_line_string
+    processor = ClaudeHistoryToObsidian.new
+
+    single_line = 'This is a single line message'
+    result = processor.send(:format_log_message, single_line)
+
+    # 単一行文字列はそのまま返される
+    assert_equal single_line, result
+  end
+
+  # TEST: format_log_message メソッド（配列）
+  def test_format_log_message_with_array
+    processor = ClaudeHistoryToObsidian.new
+
+    array_message = [
+      {'role' => 'user', 'content' => 'hello'},
+      {'role' => 'assistant', 'content' => 'world'}
+    ]
+
+    result = processor.send(:format_log_message, array_message)
+
+    # JSON が pretty print されていることを確認
+    assert result.include?('"role": "user"'), 'Should pretty print JSON array'
+    assert result.include?("\n"), 'Should have newlines for pretty print'
+    lines = result.lines
+    assert lines[1].start_with?('  '), 'Second line should be indented'
+  end
+
+  # TEST: indent_multiline メソッド
+  def test_indent_multiline_with_multiple_lines
+    processor = ClaudeHistoryToObsidian.new
+
+    text = "first line\nsecond line\nthird line"
+    result = processor.send(:indent_multiline, text)
+
+    lines = result.lines.map(&:chomp)
+    assert_equal 'first line', lines[0]
+    assert_equal '  second line', lines[1]
+    assert_equal '  third line', lines[2]
+  end
+
+  # TEST: log メソッド（JSON ハッシュの記録）
+  def test_log_json_hash
+    processor = ClaudeHistoryToObsidian.new
+    log_file = ClaudeHistoryToObsidian::LOG_FILE_PATH
+
+    # 前回のログをクリア
+    File.delete(log_file) if File.exist?(log_file)
+
+    hash_data = {
+      'test' => 'value',
+      'nested' => {'key' => 'data'}
+    }
+
+    processor.log(hash_data)
+
+    # ログファイルが作成されて、JSON が pretty print されていることを確認
+    assert File.exist?(log_file), 'Log file should be created'
+    log_content = File.read(log_file)
+    assert log_content.include?('test'), 'Should contain hash keys'
+    assert log_content.include?('value'), 'Should contain hash values'
+    assert log_content.include?('['), 'Should contain JSON brackets'
+  ensure
+    File.delete(log_file) if File.exist?(log_file)
+  end
+
+  # TEST: log メソッド（複数行メッセージの記録）
+  def test_log_multiline_message
+    processor = ClaudeHistoryToObsidian.new
+    log_file = ClaudeHistoryToObsidian::LOG_FILE_PATH
+
+    # 前回のログをクリア
+    File.delete(log_file) if File.exist?(log_file)
+
+    multiline_msg = "Error occurred:\nLine 1\nLine 2"
+    processor.log(multiline_msg)
+
+    # ログファイルが作成されて、複数行メッセージがインデント付きで記録されていることを確認
+    assert File.exist?(log_file), 'Log file should be created'
+    log_content = File.read(log_file)
+    lines = log_content.lines
+
+    # ログのフォーマット：[YYYY-MM-DD HH:MM:SS] Error occurred:
+    #                    Line 1
+    #                    Line 2
+    assert lines[0].include?('Error occurred:'), 'First log line should contain message start'
+    # インデント付きで記録されている
+    assert lines[1].include?('Line 1'), 'Should record subsequent lines'
+  ensure
+    File.delete(log_file) if File.exist?(log_file)
+  end
+
 end

@@ -20,6 +20,47 @@ end
 
 task default: :test
 
+namespace :web do
+  desc 'Import Claude Web Export conversations.json to Obsidian (CONVERSATIONS_JSON=/path/to/file or ~/Downloads/conversations.json)'
+  task :import_conversations do
+    conversations_json = ENV['CONVERSATIONS_JSON'] || File.expand_path('~/Downloads/conversations.json')
+
+    unless File.exist?(conversations_json)
+      warn "Error: #{conversations_json} does not exist"
+      exit 1
+    end
+
+    begin
+      # jq + filter-conversations パイプライン
+      # conversations.json → JSONL → Hook JSON → process_transcript
+      cmd = "jq -c '.[]' '#{conversations_json}' | bundle exec ruby bin/filter-conversations"
+      IO.popen(cmd, 'r') do |pipe|
+        pipe.each_line do |line|
+          next if line.strip.empty?
+
+          begin
+            hook_json = JSON.parse(line)
+            process_web_conversation(hook_json)
+          rescue JSON::ParserError => e
+            warn "ERROR: Failed to parse Hook JSON: #{e.message}"
+            next
+          rescue StandardError => e
+            warn "ERROR: Failed to process conversation: #{e.message}"
+            next
+          end
+        end
+      end
+
+      exit_status = $?.exitstatus
+      raise "jq + filter-conversations failed with status #{exit_status}" unless exit_status == 0
+
+    rescue StandardError => e
+      warn "✗ Web import failed: #{e.message}"
+      exit 1
+    end
+  end
+end
+
 desc 'Bulk import past Claude Code sessions from ~/.claude/projects/'
 task :bulk_import do
   projects_dir = File.expand_path('~/.claude/projects/')
@@ -135,4 +176,36 @@ def extract_first_message_timestamp(messages)
 rescue StandardError => e
   warn "WARNING: Failed to extract timestamp: #{e.message}"
   nil
+end
+
+def process_web_conversation(hook_json)
+  session_id = hook_json['session_id']
+  transcript = hook_json['transcript']
+  cwd = hook_json['cwd']
+  conversation_name = hook_json['conversation_name'] || 'conversation'
+
+  # conversation_name をスラッグ化して project_name として使用
+  project_name = slugify_name(conversation_name)
+
+  processor = ClaudeHistoryToObsidian.new
+  processor.process_transcript(
+    project_name: project_name,
+    cwd: cwd,
+    session_id: session_id,
+    transcript: transcript,
+    messages: transcript['messages']
+  )
+end
+
+def slugify_name(name)
+  # 最初の30文字を取得
+  text = name[0..29]
+
+  normalized = text
+               .downcase
+               .gsub(/[^a-z0-9]+/, '-')
+               .sub(/^-+/, '')
+               .sub(/-+$/, '')
+
+  normalized.empty? ? 'conversation' : normalized
 end

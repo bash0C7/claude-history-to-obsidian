@@ -7,7 +7,8 @@ require 'fileutils'
 require 'tmpdir'
 
 # ENV変数をテスト用に設定（lib読み込み前に定数を初期化）
-ENV['CLAUDE_VAULT_PATH'] = '/tmp/test-vault'
+ENV['CLAUDE_VAULT_PATH'] = '/tmp/test-vault/Claude Code'
+ENV['CLAUDE_WEB_VAULT_PATH'] = '/tmp/test-vault/claude.ai'
 ENV['CLAUDE_LOG_PATH'] = '/tmp/test.log'
 
 require_relative 'test_helper'
@@ -387,7 +388,7 @@ class TestClaudeHistoryToObsidian < Test::Unit::TestCase
 
     # ENV['CLAUDE_VAULT_PATH']は既にテスト開始時に'/tmp/test-vault'に設定済み
     # ここでは VAULT_BASE_PATH定数の値を使用してテスト
-    vault_path = File.join(ClaudeHistoryToObsidian::VAULT_BASE_PATH, 'test-project')
+    vault_path = File.join(ClaudeHistoryToObsidian::CLAUDE_CODE_VAULT_PATH, 'test-project')
 
     # テスト用ディレクトリを事前にクリーンアップ
     FileUtils.rm_rf(vault_path) if Dir.exist?(vault_path)
@@ -426,7 +427,7 @@ class TestClaudeHistoryToObsidian < Test::Unit::TestCase
 
     # ENV['CLAUDE_VAULT_PATH']は既に'/tmp/test-vault'に設定済み
     # テスト用プロジェクトディレクトリを準備
-    vault_base = ClaudeHistoryToObsidian::VAULT_BASE_PATH
+    vault_base = ClaudeHistoryToObsidian::CLAUDE_CODE_VAULT_PATH
     project_dir = File.join(vault_base, 'test-project-e2e')
 
     # 前回実行のクリーンアップ
@@ -508,7 +509,7 @@ class TestClaudeHistoryToObsidian < Test::Unit::TestCase
       end
 
       # ファイルが Vault に保存されたことを確認
-      vault_base = ClaudeHistoryToObsidian::VAULT_BASE_PATH
+      vault_base = ClaudeHistoryToObsidian::CLAUDE_CODE_VAULT_PATH
       project_dir = File.join(vault_base, 'test-project-hook')
 
       assert Dir.exist?(project_dir), "Project directory should be created at #{project_dir}"
@@ -557,7 +558,7 @@ class TestClaudeHistoryToObsidian < Test::Unit::TestCase
     end
 
     # Vault に保存されたことを確認
-    vault_base = ClaudeHistoryToObsidian::VAULT_BASE_PATH
+    vault_base = ClaudeHistoryToObsidian::CLAUDE_CODE_VAULT_PATH
     project_dir = File.join(vault_base, 'test-project-bulk')
 
     assert Dir.exist?(project_dir), "Project directory should be created for bulk import"
@@ -773,7 +774,7 @@ class TestClaudeHistoryToObsidian < Test::Unit::TestCase
   def test_process_transcript_creates_file
     processor = ClaudeHistoryToObsidian.new
     
-    vault_base = ClaudeHistoryToObsidian::VAULT_BASE_PATH
+    vault_base = ClaudeHistoryToObsidian::CLAUDE_CODE_VAULT_PATH
     project_dir = File.join(vault_base, 'test-process-transcript')
     
     # 前回実行のクリーンアップ
@@ -939,6 +940,64 @@ class TestClaudeHistoryToObsidian < Test::Unit::TestCase
     assert lines[1].include?('Line 1'), 'Should record subsequent lines'
   ensure
     File.delete(log_file) if File.exist?(log_file)
+  end
+
+  def test_build_markdown_default_source_is_code
+    processor = ClaudeHistoryToObsidian.new
+    messages = [
+      {'role' => 'user', 'content' => 'Test message'},
+      {'role' => 'assistant', 'content' => 'Response'}
+    ]
+
+    # source パラメータ省略時（デフォルト: 'code'）
+    markdown = processor.send(:build_markdown,
+      project_name: 'test-project',
+      cwd: '/test/path',
+      session_id: 'test123456789',
+      messages: messages
+    )
+
+    assert markdown.include?('# Claude Code Session'), 'Default should be Code session header'
+  end
+
+  def test_build_markdown_with_code_source
+    processor = ClaudeHistoryToObsidian.new
+    messages = [
+      {'role' => 'user', 'content' => 'Test message'},
+      {'role' => 'assistant', 'content' => 'Response'}
+    ]
+
+    markdown = processor.send(:build_markdown,
+      project_name: 'test-project',
+      cwd: '/test/path',
+      session_id: 'test123456789',
+      messages: messages,
+      source: 'code'
+    )
+
+    assert markdown.include?('# Claude Code Session'), 'Markdown should have Code session header'
+    assert markdown.include?('**Project**: test-project'), 'Markdown should include project name'
+    assert markdown.include?('**Session ID**: test123456789'), 'Markdown should include session ID'
+  end
+
+  def test_build_markdown_with_web_source
+    processor = ClaudeHistoryToObsidian.new
+    messages = [
+      {'role' => 'user', 'content' => 'Test message'},
+      {'role' => 'assistant', 'content' => 'Response'}
+    ]
+
+    markdown = processor.send(:build_markdown,
+      project_name: 'test-project',
+      cwd: '/test/path',
+      session_id: 'test123456789',
+      messages: messages,
+      source: 'web'
+    )
+
+    assert markdown.include?('# Claude Web Session'), 'Markdown should have Web session header'
+    assert markdown.include?('**Project**: test-project'), 'Markdown should include project name'
+    assert markdown.include?('**Session ID**: test123456789'), 'Markdown should include session ID'
   end
 
 end

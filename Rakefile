@@ -113,30 +113,39 @@ private
 def parse_and_group_jsonl(path)
   sessions = {}
 
-  File.readlines(path).each do |line|
-    next if line.strip.empty?
+  # UTF-8 エンコーディングで読み込む（invalid byte は置換）
+  File.open(path, 'r:UTF-8', invalid: :replace) do |file|
+    file.each_line do |line|
+      next if line.strip.empty?
 
-    parsed = JSON.parse(line)
-    session_id = parsed['sessionId']
-    cwd = parsed['cwd']
-    timestamp = parsed['timestamp']
-    message = parsed['message']
+      begin
+        parsed = JSON.parse(line)
+        session_id = parsed['sessionId']
+        cwd = parsed['cwd']
+        timestamp = parsed['timestamp']
+        message = parsed['message']
 
-    next unless session_id && cwd && message
+        next unless session_id && cwd && message
 
-    sessions[session_id] ||= { messages: [], cwd: cwd }
+        sessions[session_id] ||= { messages: [], cwd: cwd }
 
-    # content が配列の場合（Assistant メッセージ）、テキストを抽出
-    content = message['content']
-    if content.is_a?(Array)
-      content = content.map { |c| c.is_a?(Hash) && c['type'] == 'text' ? c['text'] : c.to_s }.join("\n")
+        # content が配列の場合（Assistant メッセージ）、テキストを抽出
+        content = message['content']
+        if content.is_a?(Array)
+          content = content.map { |c| c.is_a?(Hash) && c['type'] == 'text' ? c['text'] : c.to_s }.join("\n")
+        end
+
+        sessions[session_id][:messages] << {
+          'role' => message['role'],
+          'content' => content,
+          'timestamp' => timestamp
+        }
+      rescue JSON::ParserError => e
+        # JSON パースエラーの場合はスキップ
+        warn "WARNING: Failed to parse JSON in #{path}: #{e.message[0..100]}"
+        next
+      end
     end
-
-    sessions[session_id][:messages] << {
-      'role' => message['role'],
-      'content' => content,
-      'timestamp' => timestamp
-    }
   end
 
   sessions

@@ -1,14 +1,16 @@
 # claude-history-to-obsidian
 
-> Automatically save Claude Code conversation transcripts to your Obsidian vault
+> Automatically save Claude Code and Claude Web conversation transcripts to your Obsidian vault
 
-A lightweight Ruby CLI tool that captures your Claude Code sessions and stores them in your Obsidian vault via Hook integration. Works seamlessly with the Claude Code Hook system—no manual steps required.
+A lightweight Ruby CLI tool that captures your Claude Code and Claude Web sessions and stores them in your Obsidian vault via Hook integration. Works seamlessly with both Claude Code Hook system and Claude Web—no manual steps required.
 
 ## Features
 
-- ✅ **Automatic**: Saves transcripts automatically when you end a Claude Code session
+- ✅ **Dual Support**: Saves transcripts from both Claude Code and Claude Web
 - 📝 **Markdown**: Converts transcripts to beautifully formatted Markdown files
-- 🏠 **Organized**: Groups sessions by project name for easy browsing
+- 🏠 **Organized**: Groups sessions by project name in separate vault folders:
+  - `Claude Code/{project}/` for Claude Code sessions
+  - `claude.ai/{project}/` for Claude Web sessions
 - 📦 **Bulk Import**: Import past Claude Code sessions from JSONL history
 - 🐚 **Non-blocking**: Runs as a Hook with zero impact on Claude Code workflow
 - 📋 **Minimal**: Pure Ruby with stdlib only (no heavy dependencies)
@@ -69,22 +71,33 @@ Add this hook to your `.claude/settings.local.json` or `.claude/settings.json`:
 
 ### Automatic Usage (Recommended)
 
-1. Configure the Hook (see above)
+Works with both Claude Code and Claude Web:
+
+**Claude Code**:
+1. Configure the Hook in `.claude/settings.local.json` with `"source": "code"`
 2. Work with Claude Code as usual
-3. When you end the session (Stop button), the transcript automatically saves to your Obsidian vault
-4. Check your vault under `Claude Code/{project-name}/` to view the session
+3. When you end the session (Stop button), the transcript automatically saves
+4. Check your vault under `Claude Code/{project-name}/`
+
+**Claude Web**:
+1. Configure your application to send Hook JSON with `"source": "web"`
+2. Use Claude Web as usual
+3. When saving a session, it sends the Hook to this script
+4. Check your vault under `claude.ai/{project-name}/`
 
 ### Manual Testing
 
 Test the script before deploying to your workflow:
 
 ```bash
-# Create test data
+# Create test data (Claude Code)
 cat > /tmp/test-input.json <<'EOF'
 {
   "session_id": "test123456789",
   "transcript_path": "/tmp/test-transcript.json",
   "cwd": "/Users/bash/src/test-project",
+  "project": "test-project",
+  "source": "code",
   "permission_mode": "default",
   "hook_event_name": "Stop"
 }
@@ -113,16 +126,24 @@ ls -la ~/Library/Mobile\ Documents/iCloud~md~obsidian/Documents/ObsidianVault/Cl
 ### How It Works
 
 **Hook Mode** (Automatic - Recommended):
-1. Claude Code session ends (Stop event triggered)
-2. Hook sends session data to this script via stdin
-3. Script reads transcript from file
+1. Session ends (Claude Code Stop event or Claude Web export)
+2. Hook sends JSON via stdin with:
+   - `source: "code"` → Saves to `Claude Code/{project}/`
+   - `source: "web"` → Saves to `claude.ai/{project}/`
+3. Script reads transcript (from file in Hook mode, or embedded in JSON)
 4. Converts to Markdown with User/Claude sections
-5. Saves to Obsidian vault with auto-generated filename
+5. Saves to appropriate Obsidian vault with auto-generated filename
 6. Script exits (Hook requirement: always exit 0)
 
 **File Naming**: `{YYYYMMDD-HHMMSS}_{session-name}_{session-id-first-8}.md`
 
 Example: `20251103-143022_implementing-feature_abc12345.md`
+
+**Important Fields**:
+- `source`: Either `"code"` (Claude Code) or `"web"` (Claude Web). Default: `"code"`
+- `project`: Project name (optional, extracted from `cwd` if not provided)
+- `transcript_path`: Path to transcript file (Hook mode)
+- `transcript`: Embedded transcript object (Bulk Import mode)
 
 ### Bulk Import Previous Sessions
 
@@ -137,8 +158,9 @@ Progress is printed every 10 sessions. Files are created with timestamps from th
 
 ### View Transcripts in Obsidian
 
-Your saved transcripts are organized by project:
+Your saved transcripts are organized by source and project:
 
+**Claude Code** (`source: "code"`):
 ```
 Claude Code/
 ├── picoruby-recipes/
@@ -151,8 +173,21 @@ Claude Code/
     └── ...
 ```
 
+**Claude Web** (`source: "web"`):
+```
+claude.ai/
+├── picoruby-recipes/
+│   ├── 20251102-143022_implementing-feature_abc12345.md
+│   ├── 20251102-150000_fixing-bug_def67890.md
+│   └── ...
+├── another-project/
+│   └── ...
+└── (your-project-name)/
+    └── ...
+```
+
 Each file contains the full conversation with:
-- **Metadata**: Project name, path, session ID, date
+- **Metadata**: Project name, path, session ID, date, source (Code or Web)
 - **Conversation**: User messages and Claude responses, in order
 - **Formatting**: Markdown preserved as-is (code blocks, formatting, etc.)
 
@@ -192,26 +227,30 @@ You can customize the vault and log paths using environment variables:
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `CLAUDE_VAULT_PATH` | iCloud Drive default | Custom Obsidian vault location |
-| `CLAUDE_LOG_PATH` | `~/.local/var/log/claude-history-to-obsidian.log` | Custom log file path |
+| `CLAUDE_VAULT_PATH` | `~/Library/.../ObsidianVault/Claude Code` | Claude Code vault directory |
+| `CLAUDE_WEB_VAULT_PATH` | `~/Library/.../ObsidianVault/claude.ai` | Claude Web vault directory |
+| `CLAUDE_LOG_PATH` | `~/.local/var/log/claude-history-to-obsidian.log` | Log file path |
 
 **Examples**:
 
 ```bash
-# Use custom vault path
+# Use custom Claude Code vault path
 CLAUDE_VAULT_PATH=/custom/vault bundle exec ruby bin/claude-history-to-obsidian
+
+# Use custom Claude Web vault path
+CLAUDE_WEB_VAULT_PATH=/custom/web-vault bundle exec ruby bin/claude-history-to-obsidian
 
 # Use custom log path
 CLAUDE_LOG_PATH=/tmp/custom.log bundle exec ruby bin/claude-history-to-obsidian
 
-# Both together
-CLAUDE_VAULT_PATH=/tmp/vault CLAUDE_LOG_PATH=/tmp/app.log \
+# All together
+CLAUDE_VAULT_PATH=/tmp/code CLAUDE_WEB_VAULT_PATH=/tmp/web CLAUDE_LOG_PATH=/tmp/app.log \
   bundle exec ruby bin/claude-history-to-obsidian
 ```
 
 This is useful for:
 - **Testing**: Isolate tests with temporary directories
-- **Alternative vaults**: Use different Obsidian vaults for different projects
+- **Alternative vaults**: Use different Obsidian vaults for different sources
 - **Custom logging**: Direct logs to different locations
 
 ### Optional: Desktop Notifications

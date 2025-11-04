@@ -86,6 +86,25 @@ tail -f ~/.local/var/log/claude-history-to-obsidian.log
 2. **Understanding the code**: Read `@.claude/specifications.md` for technical details
 3. **Development methodology**: Read `@.claude/practices.md` for TDD approach
 
+### ⚠️ TEST-FIRST PRINCIPLE (絶対厳守)
+
+**This project strictly enforces Test-First Development:**
+
+1. **ALWAYS write tests BEFORE production code or config files**
+2. **改修計画 = テストコード** (Implementation plan = Test code)
+3. **RED → GREEN → REFACTOR** (Never skip RED phase)
+
+**Workflow**:
+```
+Plan → Write Test → Run (RED) → Write Code → Run (GREEN) → Refactor
+```
+
+**❌ FORBIDDEN**:
+- Modifying production code/config files before writing tests
+- Discovering failures after implementation (Test-Last Development)
+
+See `@.claude/practices.md` and `@.claude/skills/tdd/SKILL.md` for details.
+
 ---
 
 ## 🔗 Related Files

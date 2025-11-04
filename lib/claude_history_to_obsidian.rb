@@ -6,9 +6,13 @@ require 'fileutils'
 require 'time'
 
 class ClaudeHistoryToObsidian
-  VAULT_BASE_PATH = ENV.fetch(
+  CLAUDE_CODE_VAULT_PATH = ENV.fetch(
     'CLAUDE_VAULT_PATH',
     File.expand_path('~/Library/Mobile Documents/iCloud~md~obsidian/Documents/ObsidianVault/Claude Code')
+  )
+  CLAUDE_WEB_VAULT_PATH = ENV.fetch(
+    'CLAUDE_WEB_VAULT_PATH',
+    File.expand_path('~/Library/Mobile Documents/iCloud~md~obsidian/Documents/ObsidianVault/claude.ai')
   )
   LOG_FILE_PATH = ENV.fetch(
     'CLAUDE_LOG_PATH',
@@ -24,7 +28,8 @@ class ClaudeHistoryToObsidian
     transcript = hook_input['transcript'] || load_transcript(hook_input['transcript_path'])
     return unless transcript
 
-    project_name = File.basename(hook_input['cwd'])
+    source = hook_input['source'] || 'code'  # デフォルト: Claude Code
+    project_name = hook_input['project'] || File.basename(hook_input['cwd'])
     session_id = hook_input['session_id']
     session_name = extract_session_name(transcript['messages'])
 
@@ -32,10 +37,11 @@ class ClaudeHistoryToObsidian
       project_name: project_name,
       cwd: hook_input['cwd'],
       session_id: session_id,
-      messages: transcript['messages']
+      messages: transcript['messages'],
+      source: source
     )
 
-    vault_dir = ensure_directories(project_name)
+    vault_dir = ensure_directories(project_name, source)
     filename = generate_filename(session_name, session_id, transcript)
     save_to_vault(vault_dir, filename, markdown)
 
@@ -53,17 +59,18 @@ class ClaudeHistoryToObsidian
   end
 
   # Bulk Import 用: Ruby から直接呼び出し（プロセス化しない）
-  def process_transcript(project_name:, cwd:, session_id:, transcript:, messages:)
+  def process_transcript(project_name:, cwd:, session_id:, transcript:, messages:, source: 'code')
     session_name = extract_session_name(messages)
 
     markdown = build_markdown(
       project_name: project_name,
       cwd: cwd,
       session_id: session_id,
-      messages: messages
+      messages: messages,
+      source: source
     )
 
-    vault_dir = ensure_directories(project_name)
+    vault_dir = ensure_directories(project_name, source)
     filename = generate_filename(session_name, session_id, transcript)
     save_to_vault(vault_dir, filename, markdown)
 
@@ -138,11 +145,12 @@ class ClaudeHistoryToObsidian
     normalized.empty? ? 'session' : normalized
   end
 
-  def build_markdown(project_name:, cwd:, session_id:, messages:)
+  def build_markdown(project_name:, cwd:, session_id:, messages:, source: 'code')
     timestamp = Time.now.strftime('%Y-%m-%d %H:%M:%S')
+    session_type = source == 'web' ? 'Claude Web Session' : 'Claude Code Session'
 
     output = []
-    output << "# Claude Code Session"
+    output << "# #{session_type}"
     output << ""
     output << "**Project**: #{project_name}"
     output << "**Path**: #{cwd}"
@@ -220,8 +228,9 @@ class ClaudeHistoryToObsidian
     output.join("\n")
   end
 
-  def ensure_directories(project_name)
-    vault_dir = File.join(VAULT_BASE_PATH, project_name)
+  def ensure_directories(project_name, source = 'code')
+    vault_base = source == 'web' ? CLAUDE_WEB_VAULT_PATH : CLAUDE_CODE_VAULT_PATH
+    vault_dir = File.join(vault_base, project_name)
     FileUtils.mkdir_p(vault_dir)
     log("Ensured directory exists: #{vault_dir}")
     vault_dir
@@ -284,7 +293,7 @@ class ClaudeHistoryToObsidian
     log_dir = File.dirname(LOG_FILE_PATH)
     FileUtils.mkdir_p(log_dir) unless Dir.exist?(log_dir)
 
-    timestamp = Time.now.strftime('%Y-%m-%d %H:%M:%S')
+    timestamp = Time.now.localtime.strftime('%Y-%m-%d %H:%M:%S %z')
     formatted_message = format_log_message(message)
 
     File.open(LOG_FILE_PATH, 'a') do |f|

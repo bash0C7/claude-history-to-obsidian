@@ -34,13 +34,29 @@ Set up the Stop event hook in `.claude/settings.local.json`:
 
 The script handles both Hook mode and Bulk Import mode:
 
-#### Hook Mode (Claude Code Hook)
+#### Hook Mode (Claude Code or Claude Web)
 
+**Claude Code Example**:
 ```json
 {
   "session_id": "abc123456789...",
   "transcript_path": "/Users/bash/.claude/sessions/session-20251102-143022.json",
   "cwd": "/Users/bash/src/Arduino/picoruby-recipes",
+  "project": "picoruby-recipes",
+  "source": "code",
+  "permission_mode": "default",
+  "hook_event_name": "Stop"
+}
+```
+
+**Claude Web Example**:
+```json
+{
+  "session_id": "abc123456789...",
+  "transcript_path": "/Users/bash/.claude/sessions/session-20251102-143022.json",
+  "cwd": "/Users/bash/src/Arduino/picoruby-recipes",
+  "project": "picoruby-recipes",
+  "source": "web",
   "permission_mode": "default",
   "hook_event_name": "Stop"
 }
@@ -49,7 +65,13 @@ The script handles both Hook mode and Bulk Import mode:
 **Required Fields**:
 - `session_id`: Session identifier (first 8 chars used in filename)
 - `transcript_path`: Path to transcript JSON file (read from here)
-- `cwd`: Current working directory (used for project name)
+- `cwd`: Current working directory (used as fallback for project name)
+
+**Optional Fields**:
+- `project`: Project name (if not provided, extracted from `cwd` basename)
+- `source`: Either `"code"` (Claude Code) or `"web"` (Claude Web). Default: `"code"`
+  - `"code"` → Saves to `Claude Code/{project}/`
+  - `"web"` → Saves to `claude.ai/{project}/`
 
 #### Bulk Import Mode
 
@@ -66,6 +88,8 @@ The script handles both Hook mode and Bulk Import mode:
     "_first_message_timestamp": "20251102-143022"
   },
   "cwd": "/Users/bash/src/Arduino/picoruby-recipes",
+  "project": "picoruby-recipes",
+  "source": "code",
   "permission_mode": "default",
   "hook_event_name": "Stop"
 }
@@ -74,6 +98,7 @@ The script handles both Hook mode and Bulk Import mode:
 **Processing Logic**:
 - If `transcript` field exists → use directly (Bulk Import)
 - If `transcript_path` field exists → read from file (Hook Mode)
+- If `source` field exists → use for vault destination routing (default: `"code"`)
 
 ### Environment Variable Configuration
 
@@ -83,7 +108,8 @@ The application supports customizing paths via environment variables. This is pa
 
 | Variable | Format | Default | Use Case |
 |---|---|---|---|
-| `CLAUDE_VAULT_PATH` | File path | `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/ObsidianVault/Claude Code` | Custom Obsidian vault location |
+| `CLAUDE_VAULT_PATH` | File path | `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/ObsidianVault/Claude Code` | Claude Code vault directory |
+| `CLAUDE_WEB_VAULT_PATH` | File path | `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/ObsidianVault/claude.ai` | Claude Web vault directory |
 | `CLAUDE_LOG_PATH` | File path | `~/.local/var/log/claude-history-to-obsidian.log` | Custom log file location |
 
 **Implementation**:
@@ -91,9 +117,14 @@ The application supports customizing paths via environment variables. This is pa
 The constants are initialized via `ENV.fetch()` at class load time:
 
 ```ruby
-VAULT_BASE_PATH = ENV.fetch(
+CLAUDE_CODE_VAULT_PATH = ENV.fetch(
   'CLAUDE_VAULT_PATH',
   File.expand_path('~/Library/Mobile Documents/iCloud~md~obsidian/Documents/ObsidianVault/Claude Code')
+)
+
+CLAUDE_WEB_VAULT_PATH = ENV.fetch(
+  'CLAUDE_WEB_VAULT_PATH',
+  File.expand_path('~/Library/Mobile Documents/iCloud~md~obsidian/Documents/ObsidianVault/claude.ai')
 )
 
 LOG_FILE_PATH = ENV.fetch(
@@ -140,6 +171,9 @@ This ensures tests use isolated temporary directories rather than the actual iCl
 
 ### Obsidian Vault Directory Structure
 
+Vault location is determined by the `source` field:
+
+**Claude Code** (`source: "code"`):
 ```
 /Users/bash/Library/Mobile Documents/iCloud~md~obsidian/Documents/ObsidianVault/Claude Code/
 ├── picoruby-recipes/
@@ -148,14 +182,27 @@ This ensures tests use isolated temporary directories rather than the actual iCl
 │   └── ...
 ├── another-project/
 │   └── ...
-└── (project-name as per cwd basename)/
+└── (project-name)/
     └── ...
 ```
 
-**Directory Creation**:
+**Claude Web** (`source: "web"`):
+```
+/Users/bash/Library/Mobile Documents/iCloud~md~obsidian/Documents/ObsidianVault/claude.ai/
+├── picoruby-recipes/
+│   ├── 20251102-143022_implementing-feature_abc12345.md
+│   ├── 20251102-150000_fixing-bug_def67890.md
+│   └── ...
+├── another-project/
+│   └── ...
+└── (project-name)/
+    └── ...
+```
+
+**Directory Selection Logic**:
 ```ruby
-vault_base = "/Users/bash/Library/Mobile Documents/iCloud~md~obsidian/Documents/ObsidianVault/Claude Code"
-project_name = File.basename(cwd)
+vault_base = source == 'web' ? CLAUDE_WEB_VAULT_PATH : CLAUDE_CODE_VAULT_PATH
+project_name = hook_input['project'] || File.basename(hook_input['cwd'])
 project_dir = File.join(vault_base, project_name)
 ```
 
@@ -210,6 +257,9 @@ end
 
 ### Markdown Output Format
 
+The header differs based on `source`:
+
+**Claude Code** (`source: "code"`):
 ```markdown
 # Claude Code Session
 
@@ -217,7 +267,21 @@ end
 **Path**: /Users/bash/src/Arduino/picoruby-recipes
 **Session ID**: abc123456789...
 **Date**: 2025-11-02 14:30:22
+```
 
+**Claude Web** (`source: "web"`):
+```markdown
+# Claude Web Session
+
+**Project**: project-name
+**Path**: /Users/bash/src/Arduino/picoruby-recipes
+**Session ID**: abc123456789...
+**Date**: 2025-11-02 14:30:22
+```
+
+**Rest of Format** (identical for both):
+
+```markdown
 ---
 
 ## 👤 User
@@ -399,6 +463,101 @@ Located in `lib/claude_history_importer.rb`:
 - **Status**: No longer used in default flow
 - **Reason**: Superseded by direct Rakefile JSONL processing
 - **Kept for**: Reference and alternative workflows
+
+---
+
+## 📦 JSON Nesting & Content Handling
+
+### Content Type Detection
+
+The `build_markdown` method handles content in multiple formats by detecting the type and processing accordingly:
+
+#### Pattern 1: Array Content (Confirmed JSON Structure)
+
+**Condition**: `content.is_a?(Array)`
+
+**Structure**: Typically from Claude Code API responses
+```ruby
+content = [
+  {'type' => 'thinking', 'thinking' => '複数行\nの思考'},
+  {'type' => 'text', 'text' => '回答\nテキスト'},
+  {'type' => 'signature', 'text' => 'signature data'}  # Filtered out
+]
+```
+
+**Processing**:
+- `format_content_blocks` method processes each block individually
+- Block types: `'thinking'`, `'text'`, `'input'`
+- Signature blocks are skipped (type filter in block_map)
+- Escaped `\n` in content is converted to actual newlines
+
+#### Pattern 2: String Content (Text Message)
+
+**Condition**: `content.is_a?(String)`
+
+**Structure**: Plain text message from user or assistant
+```ruby
+content = "Hello\nWorld\nMultiple lines"
+```
+
+**Processing**:
+- Escaped newlines `\n` (backslash-n) are converted to actual newlines via `gsub('\\n', "\n")`
+- Content is included as-is in markdown output
+
+#### Pattern 3: Unknown/Other Types
+
+**Condition**: Any other type (rare, defensive coding)
+
+**Processing**:
+- Convert to string via `to_s`
+- Apply same `\n` conversion logic
+
+### Signature Filtering
+
+Signatures are filtered at two levels to prevent trace data from appearing in Obsidian output:
+
+#### Level 1: Message-Level Signature (Line 157)
+```ruby
+next if msg['signature']  # Skip entire message if signature field exists
+```
+
+This skips messages that contain a top-level `signature` field (tracing data).
+
+#### Level 2: Block-Level Signature (Line 202-208)
+```ruby
+block_config = block_map[block_type]
+next if block_config.nil?  # Skips blocks with type not in block_map
+```
+
+The `block_map` only includes `'thinking'`, `'text'`, and `'input'` types, so `'signature'` blocks are automatically filtered out.
+
+### Newline Conversion
+
+Escaped newlines (`\n` as two characters: backslash + n) are converted to actual newlines:
+
+**Line 164**:
+```ruby
+content = content.gsub('\\n', "\n") if content.is_a?(String)
+```
+
+**Line 212**:
+```ruby
+content_text = content_text.gsub('\\n', "\n") if content_text.is_a?(String)
+```
+
+This ensures that:
+- Multi-line content displays correctly in Obsidian
+- Philosophy: `\n` in JSON becomes actual newlines in markdown output
+- Applies to both top-level message content and block content
+
+### Test Coverage
+
+See `test/test_claude_history_to_obsidian.rb` for comprehensive test cases:
+
+- `test_build_markdown_with_content_array_blocks` - Array content with multiple block types
+- `test_build_markdown_filters_out_signature_blocks` - Signature filtering
+- `test_build_markdown_handles_input_blocks` - Input block type handling
+- `test_build_markdown_with_array_content` - Array content format
 
 ---
 

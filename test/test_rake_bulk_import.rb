@@ -104,7 +104,7 @@ class TestRakeBulkImport < Test::Unit::TestCase
       'CLAUDE_LOG_PATH' => @log_file
     }
 
-    cmd = "cd #{Dir.pwd} && rake bulk_import 2>&1"
+    cmd = "cd #{Dir.pwd} && rake code:bulk_import 2>&1"
 
     # 環境変数を設定して実行
     stdout, stderr, status = Open3.capture3(env, cmd)

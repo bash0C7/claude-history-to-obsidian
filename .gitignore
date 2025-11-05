@@ -31,6 +31,9 @@ CLAUDE.local.md
 .test-results/
 coverage/
 
+# Session data - development test only (do not commit)
+conversations.json
+
 # OS specific
 .DS_Store
 Thumbs.db

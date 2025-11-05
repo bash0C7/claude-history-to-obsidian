@@ -13,7 +13,12 @@
       "Bash(rake check_env:*)",
       "Bash(bundle exec ruby:*)",
       "Bash(xargs -I {} sh -c 'echo \"\"\"\"{}\"\"\"\" | bundle exec ruby bin/claude-history-to-obsidian 2>&1 | head -1')",
-      "Bash(rake bulk_import:*)"
+      "Bash(rake bulk_import:*)",
+      "Bash(python3 -m json.tool)",
+      "Bash(cat:*)",
+      "Bash(rake web:import_conversations:*)",
+      "Bash(bundle exec rake test:*)",
+      "Bash(echo:*)"
     ],
     "deny": [
       "Bash(git remote remove:*)",

@@ -20,10 +20,69 @@ end
 
 task default: :test
 
+namespace :code do
+  desc 'Bulk import past Claude Code sessions from ~/.claude/projects/'
+  task :bulk_import do
+    projects_dir = ENV.fetch('CLAUDE_PROJECTS_DIR', File.expand_path('~/.claude/projects/'))
+
+    unless Dir.exist?(projects_dir)
+      puts "Error: #{projects_dir} does not exist"
+      exit 1
+    end
+
+    puts '🔄 Code bulk import...'
+    puts "📁 Source: #{projects_dir}"
+
+    count = 0
+    errors = 0
+
+    # Ctrl+C で終了
+    Signal.trap('INT') do
+      puts "\n⚠️  Interrupt received, stopping import..."
+      exit 130
+    end
+
+    begin
+      # JSONL ファイルをパースしてセッションごとに処理
+      last_project = nil
+      Dir.glob("#{projects_dir}/**/*.jsonl").each do |jsonl_path|
+        # プロジェクト名を抽出
+        project_name = extract_project_name(jsonl_path)
+
+        # プロジェクトが変わったら表示
+        if project_name != last_project
+          puts "📂 #{project_name}"
+          last_project = project_name
+        end
+
+        sessions = parse_and_group_jsonl(jsonl_path)
+
+        sessions.each do |session_id, session_data|
+          begin
+            relative_path = process_session(session_id, session_data)
+            puts relative_path
+            count += 1
+          rescue StandardError => e
+            errors += 1
+            warn "Error processing session #{session_id}: #{e.message}"
+          end
+        end
+      end
+
+      puts "\n✓ Code import completed: #{count} sessions imported, #{errors} errors"
+    rescue StandardError => e
+      puts "✗ Code import failed: #{e.message}"
+      exit 1
+    ensure
+      Signal.trap('INT', 'DEFAULT')
+    end
+  end
+end
+
 namespace :web do
-  desc 'Import Claude Web Export conversations.json to Obsidian (CONVERSATIONS_JSON=/path/to/file or ./conversations.json)'
-  task :import_conversations do
-    conversations_json = ENV['CONVERSATIONS_JSON'] || './conversations.json'
+  desc 'Bulk import Claude Web Export conversations.json to Obsidian (CONVERSATIONS_JSON=/path/to/file or ~/Downloads/conversations.json)'
+  task :bulk_import do
+    conversations_json = ENV['CONVERSATIONS_JSON'] || File.expand_path('~/Downloads/conversations.json')
 
     unless File.exist?(conversations_json)
       warn "Error: #{conversations_json} does not exist"
@@ -31,6 +90,7 @@ namespace :web do
     end
 
     begin
+      puts '🔄 Web bulk import...'
       puts "📁 Reading: #{conversations_json}"
 
       # Ruby でファイルをエンコーディング指定で読み込む（JSON 全体をパース）
@@ -45,16 +105,16 @@ namespace :web do
       count = 0
       conversations.each do |conversation|
         begin
-          process_web_conversation(conversation)
+          relative_path = process_web_conversation(conversation)
+          puts relative_path
           count += 1
-          puts "✓ Processed #{count} conversations" if count % 10 == 0
         rescue StandardError => e
           warn "WARNING: Failed to process conversation: #{e.message}"
           # 次の会話を処理継続（非ブロッキング）
         end
       end
 
-      puts "✓ Web import completed: #{count} conversations processed"
+      puts "\n✓ Web import completed: #{count} conversations processed"
 
     rescue JSON::ParserError => e
       warn "✗ Failed to parse JSON: #{e.message}"
@@ -63,59 +123,6 @@ namespace :web do
       warn "✗ Web import failed: #{e.message}"
       exit 1
     end
-  end
-end
-
-desc 'Bulk import past Claude Code sessions from ~/.claude/projects/'
-task :bulk_import do
-  projects_dir = ENV.fetch('CLAUDE_PROJECTS_DIR', File.expand_path('~/.claude/projects/'))
-
-  unless Dir.exist?(projects_dir)
-    puts "Error: #{projects_dir} does not exist"
-    exit 1
-  end
-
-  puts '🔄 Bulk importing Claude Code sessions...'
-  puts "📁 Source: #{projects_dir}"
-
-  count = 0
-  errors = 0
-
-  # Ctrl+C で終了
-  Signal.trap('INT') do
-    puts "\n⚠️  Interrupt received, stopping import..."
-    exit 130
-  end
-
-  begin
-    # JSONL ファイルをパースしてセッションごとに処理
-    Dir.glob("#{projects_dir}/**/*.jsonl").each do |jsonl_path|
-      project_name = extract_project_name(jsonl_path)
-      puts "\n📂 #{project_name}"
-
-      sessions = parse_and_group_jsonl(jsonl_path)
-
-      sessions.each do |session_id, session_data|
-        begin
-          timestamp = extract_first_message_timestamp(session_data[:messages])
-          session_id_short = session_id[0..7]
-          puts "  #{timestamp || 'unknown'} #{session_id_short}"
-
-          process_session(session_id, session_data)
-          count += 1
-        rescue StandardError => e
-          errors += 1
-          warn "Error processing session #{session_id}: #{e.message}"
-        end
-      end
-    end
-
-    puts "\n✓ Bulk import completed: #{count} sessions imported, #{errors} errors"
-  rescue StandardError => e
-    puts "✗ Bulk import failed: #{e.message}"
-    exit 1
-  ensure
-    Signal.trap('INT', 'DEFAULT')
   end
 end
 
@@ -177,13 +184,15 @@ def process_session(session_id, session_data)
 
   # ClaudeHistoryToObsidian を直接呼び出す
   processor = ClaudeHistoryToObsidian.new
-  processor.process_transcript(
+  relative_path = processor.process_transcript(
     project_name: File.basename(cwd),
     cwd: cwd,
     session_id: session_id,
     transcript: transcript,
     messages: messages
   )
+
+  relative_path
 end
 
 def extract_first_message_timestamp(messages)
@@ -208,9 +217,10 @@ def process_web_conversation(conversation)
   return if chat_messages.empty?
 
   # chat_messages を transcript 形式に変換
+  # Note: Claude Web uses 'sender' field instead of 'role', and 'human' instead of 'user'
   messages = chat_messages.map do |msg|
     {
-      'role' => msg['role'],
+      'role' => msg['sender'] == 'human' ? 'user' : msg['sender'],
       'content' => msg['content'],
       'timestamp' => msg['created_at']
     }
@@ -229,13 +239,16 @@ def process_web_conversation(conversation)
   project_name = slugify_name(conversation_name)
 
   processor = ClaudeHistoryToObsidian.new
-  processor.process_transcript(
+  relative_path = processor.process_transcript(
     project_name: project_name,
     cwd: Dir.pwd,
     session_id: session_id,
     transcript: transcript,
-    messages: messages
+    messages: messages,
+    source: 'web'
   )
+
+  relative_path
 end
 
 def extract_project_name(jsonl_path)

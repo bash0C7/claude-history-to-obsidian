@@ -186,6 +186,21 @@ claude.ai/
     └── ...
 ```
 
+**Test Mode** (when `CLAUDE_VAULT_MODE=test`):
+```
+Claude Code [test]/
+├── picoruby-recipes/
+│   └── 20251102-143022_implementing-feature_abc12345.md
+└── another-project/
+    └── ...
+
+claude.ai [test]/
+├── picoruby-recipes/
+│   └── 20251102-143022_implementing-feature_abc12345.md
+└── another-project/
+    └── ...
+```
+
 Each file contains the full conversation with:
 - **Metadata**: Project name, path, session ID, date, source (Code or Web)
 - **Conversation**: User messages and Claude responses, in order
@@ -230,6 +245,7 @@ You can customize the vault and log paths using environment variables:
 | `CLAUDE_VAULT_PATH` | `~/Library/.../ObsidianVault/Claude Code` | Claude Code vault directory |
 | `CLAUDE_WEB_VAULT_PATH` | `~/Library/.../ObsidianVault/claude.ai` | Claude Web vault directory |
 | `CLAUDE_LOG_PATH` | `~/.local/var/log/claude-history-to-obsidian.log` | Log file path |
+| `CLAUDE_VAULT_MODE` | empty (normal mode) | Set to `test` to add `[test]` suffix to vault folders for isolation |
 
 **Examples**:
 
@@ -243,13 +259,16 @@ CLAUDE_WEB_VAULT_PATH=/custom/web-vault bundle exec ruby bin/claude-history-to-o
 # Use custom log path
 CLAUDE_LOG_PATH=/tmp/custom.log bundle exec ruby bin/claude-history-to-obsidian
 
+# Enable test mode (adds [test] suffix to vault folders)
+CLAUDE_VAULT_MODE=test bundle exec ruby bin/claude-history-to-obsidian
+
 # All together
-CLAUDE_VAULT_PATH=/tmp/code CLAUDE_WEB_VAULT_PATH=/tmp/web CLAUDE_LOG_PATH=/tmp/app.log \
+CLAUDE_VAULT_PATH=/tmp/code CLAUDE_WEB_VAULT_PATH=/tmp/web CLAUDE_VAULT_MODE=test CLAUDE_LOG_PATH=/tmp/app.log \
   bundle exec ruby bin/claude-history-to-obsidian
 ```
 
 This is useful for:
-- **Testing**: Isolate tests with temporary directories
+- **Testing**: Isolate test data with `CLAUDE_VAULT_MODE=test` to separate from production data
 - **Alternative vaults**: Use different Obsidian vaults for different sources
 - **Custom logging**: Direct logs to different locations
 
@@ -260,6 +279,120 @@ Install the optional `terminal-notifier` gem for macOS desktop notifications:
 ```bash
 bundle add terminal-notifier
 ```
+
+## Parallel Development with Worktrees
+
+Run multiple Claude Code sessions in parallel on different features without interference using git worktrees.
+
+### Why Use Worktrees?
+
+- ✅ **Isolated Environments**: Each worktree is completely independent
+- ✅ **No File Conflicts**: Changes in one session don't affect others
+- ✅ **Parallel Productivity**: Work on multiple features simultaneously
+- ✅ **Clean Merging**: Automatic merge handling with conflict resolution support
+- ✅ **Automatic Cleanup**: Sessions automatically clean up after completion
+
+### Quick Start
+
+```bash
+# Start a parallel development session
+@worktree-session feature-add-web-support
+
+# This creates a worktree at:
+# ~/.cache/claude-worktrees/claude-history-to-obsidian/feature-add-web-support/
+```
+
+The `worktree-session` subagent (available globally) will:
+1. Create an isolated git worktree
+2. Set up Ruby/Bundler environment
+3. Show you the worktree path
+4. Guide you to open Claude Code in the new worktree
+
+### Multiple Parallel Sessions
+
+You can safely run multiple worktrees in parallel:
+
+```
+Session 1 (main): Code review & planning
+  └─ @worktree-session feature-web-import
+
+Session 2 (separate): Feature implementation
+  └─ @worktree-session fix-encoding-bug
+
+Session 3 (another): Bug fix
+  (work independently in each)
+
+Each session completes and merges independently
+```
+
+### Session Completion
+
+When your Claude Code session in the worktree is complete:
+
+```bash
+# Merge the worktree back to main and cleanup
+@worktree-session --merge feature-add-web-support
+```
+
+The subagent will:
+1. Merge the worktree branch to main
+2. Resolve any conflicts (with support if needed)
+3. Delete the worktree
+4. Clean up the git branch
+
+### Worktree Storage
+
+Worktrees are stored in `~/.cache/claude-worktrees/{project-name}/{branch-name}/`:
+- **Cache location**: Non-intrusive to your main project
+- **Persistence**: Survives system restarts (unlike `/tmp/`)
+- **Manual cleanup**: Can be deleted anytime with `git worktree remove`
+
+### Best Practices
+
+1. **Branch Naming**: Use descriptive names
+   - `feature-web-import` (feature implementation)
+   - `fix-encoding-bug` (bug fix)
+   - `refactor-core-logic` (refactoring)
+
+2. **Conflict Handling**: If merge conflicts occur, the subagent provides:
+   - Clear conflict markers in files
+   - Guidance for resolution
+   - Ability to abort and retry
+
+3. **Environment Isolation**: Each worktree has:
+   - Independent `vendor/bundle/`
+   - Separate environment variables (e.g., log paths)
+   - Isolated temporary files
+
+4. **Session Management**:
+   - Keep each session focused on one feature/fix
+   - Merge early and often to avoid large conflicts
+   - Clean up completed worktrees promptly
+
+### Troubleshooting Worktrees
+
+**Worktree creation fails**:
+```bash
+# Check existing worktrees
+git worktree list
+
+# Remove orphaned worktree if needed
+git worktree remove --force ~/.cache/claude-worktrees/...
+```
+
+**Merge conflicts during completion**:
+```bash
+# The subagent will offer to help resolve conflicts
+# It shows you the conflicted files and guides resolution
+```
+
+**Slow environment setup**:
+```bash
+# First bundle install is slower; subsequent sessions are faster
+# Cache is reused across worktrees
+```
+
+For detailed worktree information, see **~/.claude/agents/worktree-session.md** (available globally in Claude Code).
 
 ## Troubleshooting
 

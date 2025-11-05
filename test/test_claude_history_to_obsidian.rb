@@ -402,6 +402,49 @@ class TestClaudeHistoryToObsidian < Test::Unit::TestCase
     FileUtils.rm_rf(vault_path)
   end
 
+  def test_ensure_directories_adds_test_suffix_in_test_mode
+    processor = ClaudeHistoryToObsidian.new
+
+    # テストモードを設定
+    original_mode = ENV['CLAUDE_VAULT_MODE']
+    begin
+      ENV['CLAUDE_VAULT_MODE'] = 'test'
+
+      # テストモード時のvault pathを確認
+      result = processor.send(:ensure_directories, 'test-project')
+
+      # [test] サフィックスが付いていることを確認
+      assert result.include?('[test]'), "Should include [test] suffix in test mode: #{result}"
+      assert result.include?('test-project'), "Should include project name: #{result}"
+    ensure
+      ENV['CLAUDE_VAULT_MODE'] = original_mode
+    end
+  end
+
+  def test_ensure_directories_no_suffix_in_normal_mode
+    processor = ClaudeHistoryToObsidian.new
+
+    # テストモードをクリア
+    original_mode = ENV['CLAUDE_VAULT_MODE']
+    begin
+      ENV['CLAUDE_VAULT_MODE'] = nil
+
+      vault_path = File.join(ClaudeHistoryToObsidian::CLAUDE_CODE_VAULT_PATH, 'test-project')
+
+      # 事前にクリーンアップ
+      FileUtils.rm_rf(vault_path) if Dir.exist?(vault_path)
+
+      result = processor.send(:ensure_directories, 'test-project')
+
+      # [test] サフィックスが付いていないことを確認
+      assert !result.include?('[test]'), "Should not include [test] suffix in normal mode: #{result}"
+      assert_equal vault_path, result
+    ensure
+      ENV['CLAUDE_VAULT_MODE'] = original_mode
+      FileUtils.rm_rf(vault_path) if Dir.exist?(vault_path)
+    end
+  end
+
   def test_save_to_vault_writes_markdown_file
     processor = ClaudeHistoryToObsidian.new
 
@@ -445,7 +488,7 @@ class TestClaudeHistoryToObsidian < Test::Unit::TestCase
       }
 
       # process_transcriptを呼び出す
-      processor.send(:process_transcript,
+      result = processor.send(:process_transcript,
         project_name: 'test-project-e2e',
         cwd: '/test/project',
         session_id: 'test-session-123',
@@ -463,9 +506,90 @@ class TestClaudeHistoryToObsidian < Test::Unit::TestCase
       # ファイル名形式を確認（YYYYMMDD-HHMMSS_name_sessionid.md）
       filename = File.basename(files[0])
       assert filename.match?(/^\d{8}-\d{6}_.*_.{8}\.md$/), "Filename format should match pattern: #{filename}"
+
+      # 戻り値がVault相対パスであることを確認
+      assert_not_nil result, 'process_transcript should return a value'
+      assert result.include?('Claude Code/test-project-e2e/'), "Return value should include project path: #{result}"
+      assert result.end_with?('.md'), "Return value should end with .md: #{result}"
     ensure
       # クリーンアップ
       FileUtils.rm_rf(project_dir)
+    end
+  end
+
+  # TEST: process_transcript returns vault relative path with Code source
+  def test_process_transcript_returns_code_vault_path
+    processor = ClaudeHistoryToObsidian.new
+
+    vault_base = ClaudeHistoryToObsidian::CLAUDE_CODE_VAULT_PATH
+    project_dir = File.join(vault_base, 'test-vault-path-code')
+
+    FileUtils.rm_rf(project_dir) if Dir.exist?(project_dir)
+
+    begin
+      transcript_data = {
+        'session_id' => 'return-path-test-001',
+        'cwd' => '/test/project',
+        'messages' => [
+          {'role' => 'user', 'content' => 'Testing return path', 'timestamp' => '2025-11-03T14:30:22.000Z'},
+          {'role' => 'assistant', 'content' => 'Response', 'timestamp' => '2025-11-03T14:30:25.000Z'}
+        ],
+        '_first_message_timestamp' => '20251103-143022'
+      }
+
+      result = processor.send(:process_transcript,
+        project_name: 'test-vault-path-code',
+        cwd: '/test/project',
+        session_id: 'return-path-test-001',
+        transcript: transcript_data,
+        messages: transcript_data['messages'],
+        source: 'code'
+      )
+
+      # 形式: Claude Code/{project}/{filename}.md
+      expected_prefix = 'Claude Code/test-vault-path-code/'
+      assert result.start_with?(expected_prefix), "Should start with '#{expected_prefix}': #{result}"
+      assert result.match?(/^Claude Code\/test-vault-path-code\/\d{8}-\d{6}_.*_.{8}\.md$/), "Should match vault relative path format: #{result}"
+    ensure
+      FileUtils.rm_rf(project_dir) if Dir.exist?(project_dir)
+    end
+  end
+
+  # TEST: process_transcript returns vault relative path with Web source
+  def test_process_transcript_returns_web_vault_path
+    processor = ClaudeHistoryToObsidian.new
+
+    vault_web_base = ClaudeHistoryToObsidian::CLAUDE_WEB_VAULT_PATH
+    project_dir = File.join(vault_web_base, 'test-vault-path-web')
+
+    FileUtils.rm_rf(project_dir) if Dir.exist?(project_dir)
+
+    begin
+      transcript_data = {
+        'session_id' => 'return-path-test-web-001',
+        'cwd' => '/test/project',
+        'messages' => [
+          {'role' => 'user', 'content' => 'Testing web return path', 'timestamp' => '2025-11-03T14:30:22.000Z'},
+          {'role' => 'assistant', 'content' => 'Response', 'timestamp' => '2025-11-03T14:30:25.000Z'}
+        ],
+        '_first_message_timestamp' => '20251103-143022'
+      }
+
+      result = processor.send(:process_transcript,
+        project_name: 'test-vault-path-web',
+        cwd: '/test/project',
+        session_id: 'return-path-test-web-001',
+        transcript: transcript_data,
+        messages: transcript_data['messages'],
+        source: 'web'
+      )
+
+      # 形式: claude.ai/{yyyymm}/{timestamp}_{project_name}_{session_name}.md
+      expected_prefix = 'claude.ai/202511/'
+      assert result.start_with?(expected_prefix), "Should start with '#{expected_prefix}': #{result}"
+      assert result.match?(/^claude\.ai\/202511\/\d{8}-\d{6}_test-vault-path-web_testing-web-return-path\.md$/), "Should match web vault relative path format with yyyymm directory: #{result}"
+    ensure
+      FileUtils.rm_rf(project_dir) if Dir.exist?(project_dir)
     end
   end
 

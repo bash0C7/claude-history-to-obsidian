@@ -41,8 +41,8 @@ class ClaudeHistoryToObsidian
       source: source
     )
 
-    vault_dir = ensure_directories(project_name, source)
-    filename = generate_filename(session_name, session_id, transcript)
+    vault_dir = ensure_directories(project_name, source, transcript)
+    filename = generate_filename(session_name, session_id, transcript, source, project_name)
     save_to_vault(vault_dir, filename, markdown)
 
     log("Successfully saved transcript: #{filename}")
@@ -59,6 +59,7 @@ class ClaudeHistoryToObsidian
   end
 
   # Bulk Import 用: Ruby から直接呼び出し（プロセス化しない）
+  # 戻り値: Vault相対パス（例: "Claude Code/project/20251103-143022_name_abc12345.md" または "claude.ai/202511/20251103-143022_project-name_session.md"）
   def process_transcript(project_name:, cwd:, session_id:, transcript:, messages:, source: 'code')
     session_name = extract_session_name(messages)
 
@@ -70,11 +71,26 @@ class ClaudeHistoryToObsidian
       source: source
     )
 
-    vault_dir = ensure_directories(project_name, source)
-    filename = generate_filename(session_name, session_id, transcript)
+    # vault_dir と 実際のディレクトリ名（year_month または project_name）を取得
+    vault_dir = ensure_directories(project_name, source, transcript)
+
+    # Web の場合、ディレクトリ名は yyyymm になるので、それを反映させる
+    actual_dir_name = if source == 'web' && transcript
+      timestamp = extract_session_timestamp(transcript)
+      timestamp ? timestamp[0..5] : project_name
+    else
+      project_name
+    end
+
+    filename = generate_filename(session_name, session_id, transcript, source, project_name)
     save_to_vault(vault_dir, filename, markdown)
 
+    # Vault相対パスを構築して返す
+    vault_subdir = source == 'web' ? 'claude.ai' : 'Claude Code'
+    relative_path = File.join(vault_subdir, actual_dir_name, filename)
+
     log("Successfully imported transcript: #{filename}")
+    relative_path
   rescue StandardError => e
     log("ERROR: #{e.class}: #{e.message}")
     log(e.backtrace.join("\n"))
@@ -228,8 +244,23 @@ class ClaudeHistoryToObsidian
     output.join("\n")
   end
 
-  def ensure_directories(project_name, source = 'code')
+  def ensure_directories(project_name, source = 'code', transcript = nil)
     vault_base = source == 'web' ? CLAUDE_WEB_VAULT_PATH : CLAUDE_CODE_VAULT_PATH
+
+    # Web の場合、タイムスタンプから yyyymm を抽出してディレクトリ名にする
+    if source == 'web' && transcript
+      timestamp = extract_session_timestamp(transcript)
+      if timestamp
+        year_month = timestamp[0..5]  # "20251103-143022" -> "202511"
+        project_name = year_month
+      end
+    end
+
+    # テストモード時は [test] サフィックスを付加
+    if ENV['CLAUDE_VAULT_MODE'] == 'test'
+      project_name = "#{project_name} [test]"
+    end
+
     vault_dir = File.join(vault_base, project_name)
     FileUtils.mkdir_p(vault_dir)
     log("Ensured directory exists: #{vault_dir}")
@@ -239,12 +270,19 @@ class ClaudeHistoryToObsidian
     raise
   end
 
-  def generate_filename(session_name, session_id, transcript)
+  def generate_filename(session_name, session_id, transcript, source = 'code', project_name = nil)
     # セッションの最初のメッセージのタイムスタンプを使用（冪等性を保つため）
     # なければフォールバック（Hook互換性のため）
     timestamp = extract_session_timestamp(transcript) || Time.now.strftime('%Y%m%d-%H%M%S')
-    short_id = session_id[0..7]
-    "#{timestamp}_#{session_name}_#{short_id}.md"
+
+    if source == 'web'
+      # Web の場合は session_id を含めない
+      "#{timestamp}_#{project_name}_#{session_name}.md"
+    else
+      # Code の場合は従来通り session_id を含める
+      short_id = session_id[0..7]
+      "#{timestamp}_#{session_name}_#{short_id}.md"
+    end
   end
 
   def extract_session_timestamp(transcript)

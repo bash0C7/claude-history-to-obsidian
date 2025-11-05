@@ -111,6 +111,7 @@ The application supports customizing paths via environment variables. This is pa
 | `CLAUDE_VAULT_PATH` | File path | `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/ObsidianVault/Claude Code` | Claude Code vault directory |
 | `CLAUDE_WEB_VAULT_PATH` | File path | `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/ObsidianVault/claude.ai` | Claude Web vault directory |
 | `CLAUDE_LOG_PATH` | File path | `~/.local/var/log/claude-history-to-obsidian.log` | Custom log file location |
+| `CLAUDE_VAULT_MODE` | `test` or empty | empty (normal mode) | Adds `[test]` suffix to vault folders for test isolation |
 
 **Implementation**:
 
@@ -142,12 +143,16 @@ CLAUDE_VAULT_PATH=/tmp/test-vault bundle exec ruby bin/claude-history-to-obsidia
 # Use custom log path
 CLAUDE_LOG_PATH=/tmp/app.log bundle exec ruby bin/claude-history-to-obsidian
 
-# Use both (Hook configuration example)
+# Use test mode (adds [test] suffix to vault folders)
+CLAUDE_VAULT_MODE=test bundle exec ruby bin/claude-history-to-obsidian
+# Files saved to: Claude Code [test]/{project}/, claude.ai [test]/{project}/
+
+# Use all together (Hook configuration example)
 {
   "hooks": {
     "Stop": {
       "*": [{
-        "command": "CLAUDE_VAULT_PATH=/custom/vault CLAUDE_LOG_PATH=/custom/app.log cd /path/to/project && bundle exec ruby bin/claude-history-to-obsidian"
+        "command": "CLAUDE_VAULT_PATH=/custom/vault CLAUDE_VAULT_MODE=test CLAUDE_LOG_PATH=/custom/app.log cd /path/to/project && bundle exec ruby bin/claude-history-to-obsidian"
       }]
     }
   }

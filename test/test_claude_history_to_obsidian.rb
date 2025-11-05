@@ -98,6 +98,72 @@ class TestClaudeHistoryToObsidian < Test::Unit::TestCase
     assert_equal 'session', name, 'Content with only special chars should default to "session"'
   end
 
+  # TEST: extract_session_name with array content (conversations.json format)
+  def test_extract_session_name_with_array_content_hash_and_string
+    processor = ClaudeHistoryToObsidian.new
+
+    # contentが配列形式（Hashとstringが混在）
+    messages = [
+      {
+        'role' => 'user',
+        'content' => [
+          {'type' => 'text', 'text' => 'Fix the authentication bug in production'},
+          'Additional context here'
+        ]
+      }
+    ]
+
+    name = processor.send(:extract_session_name, messages)
+    # "Fix the authentication bug in production Additional context here"
+    # 最初の30文字: "Fix the authentication bug in "
+    # 正規化後: "fix-the-authentication-bug-in"
+    assert_equal 'fix-the-authentication-bug-in', name
+  end
+
+  # TEST: extract_session_name with array content containing only strings
+  def test_extract_session_name_with_array_content_strings_only
+    processor = ClaudeHistoryToObsidian.new
+
+    # contentが配列形式（文字列のみ）
+    messages = [
+      {
+        'role' => 'user',
+        'content' => [
+          'Implement new feature',
+          'for user dashboard'
+        ]
+      }
+    ]
+
+    name = processor.send(:extract_session_name, messages)
+    # "Implement new feature for user dashboard"
+    # 最初の30文字: "Implement new feature for user"
+    # 正規化後: "implement-new-feature-for-user"
+    assert_equal 'implement-new-feature-for-user', name
+  end
+
+  # TEST: extract_session_name with array content containing only hashes
+  def test_extract_session_name_with_array_content_hashes_only
+    processor = ClaudeHistoryToObsidian.new
+
+    # contentが配列形式（Hashのみ、type='text'のみ）
+    messages = [
+      {
+        'role' => 'user',
+        'content' => [
+          {'type' => 'text', 'text' => 'Debug memory leak'},
+          {'type' => 'text', 'text' => 'in background worker'}
+        ]
+      }
+    ]
+
+    name = processor.send(:extract_session_name, messages)
+    # "Debug memory leak in background worker"
+    # 最初の30文字: "Debug memory leak in backgroun"
+    # 正規化後: "debug-memory-leak-in-backgroun"
+    assert_equal 'debug-memory-leak-in-backgroun', name
+  end
+
   def test_extract_session_timestamp_from_field
     processor = ClaudeHistoryToObsidian.new
     transcript = {

@@ -1,6 +1,6 @@
 ---
 name: ruby-testing
-description: Execute Ruby tests, create test data for transcripts and hooks, verify test output, and check markdown generation. Use when testing transcript conversion, validating file output, or checking message formatting.
+description: "🧪 Test the Ruby script with sample Hook JSON, verify markdown output, check transcript conversion. Use when you want to 'test the script', 'verify output', 'check if it works', 'run tests', or 'simulate hook execution'. Use PROACTIVELY before commits."
 ---
 
 # Ruby Testing Skill

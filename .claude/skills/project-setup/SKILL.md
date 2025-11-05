@@ -1,6 +1,6 @@
 ---
 name: project-setup
-description: Verify project environment setup, check Ruby version, initialize bundler, validate directory structure, ensure dependencies installed, and confirm Obsidian vault path accessibility. Use during initial setup, environment verification, or troubleshooting setup issues.
+description: "⚙️ Verify Ruby 3.4.7, bundler config, vendor/bundle setup, Obsidian vault access. Use when 'setup environment', 'check setup', 'verify installation', or starting fresh. Use PROACTIVELY when environment issues suspected."
 ---
 
 # Project Setup Skill

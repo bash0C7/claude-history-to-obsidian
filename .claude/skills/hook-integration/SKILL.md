@@ -1,6 +1,6 @@
 ---
 name: hook-integration
-description: Create hook test data, verify hook JSON structure, simulate Claude Code hook execution, test transcript processing, validate generated output files in Obsidian vault. Use when setting up hooks, testing hook workflow, debugging hook integration, or verifying end-to-end behavior.
+description: "🪝 Create Hook test data, simulate Claude Code Stop event, verify transcript processing, validate Obsidian output. Use when 'testing hook', 'simulate hook', 'verify hook integration', or 'end-to-end test'. Use PROACTIVELY for integration testing and Hook workflow validation."
 ---
 
 # Hook Integration Skill

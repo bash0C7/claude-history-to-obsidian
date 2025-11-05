@@ -1,6 +1,6 @@
 ---
 name: ruby-cli-debugging
-description: Debug Ruby CLI scripts using logs, trace execution flow, analyze error messages, inspect variables, step through problematic code sections. Use when scripts fail unexpectedly, behavior is incorrect, or need to understand execution flow.
+description: "🐛 Debug Ruby CLI errors, analyze logs, trace execution flow, inspect variables. Use when you see 'error', 'failed', 'exception', 'logs show', or 'not working'. Use PROACTIVELY when tests fail unexpectedly or behavior is incorrect."
 ---
 
 # Ruby CLI Debugging Skill

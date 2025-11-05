@@ -1,6 +1,6 @@
 ---
 name: tdd
-description: Apply Test-Driven Development methodology following t-wada principles and Kent Beck's practices. Guide development through RED-GREEN-REFACTOR cycles with test lists, baby steps, and continuous refactoring.
+description: "📝 Apply t-wada TDD methodology (RED-GREEN-REFACTOR). Use when 'implementing features', 'writing tests', 'test-first', 'refactoring', or starting new development. Use PROACTIVELY for all feature development (default methodology)."
 ---
 
 # Test-Driven Development (t-wada Style)

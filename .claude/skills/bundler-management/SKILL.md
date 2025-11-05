@@ -1,6 +1,6 @@
 ---
 name: bundler-management
-description: Manage Ruby gem dependencies with bundler, enforce vendor/bundle isolation, handle Gem additions/updates, verify dependency configuration. Use when installing gems, updating dependencies, checking bundler setup, or enforcing no-global-gems policy.
+description: "💎 Manage Ruby gems with bundler, enforce vendor/bundle isolation, add/update dependencies. Use when 'install gem', 'update dependencies', 'bundler error', or 'gem version'. Use PROACTIVELY when Gemfile changes."
 ---
 
 # Bundler Management Skill

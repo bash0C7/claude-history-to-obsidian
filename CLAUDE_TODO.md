@@ -83,6 +83,51 @@
 
 ---
 
+## ✅ 解決済み: CLAUDE.md & Skills リファクタリング（2025-11-05）
+
+### 実施内容
+
+公式ドキュメント（Progressive Disclosure）に準拠したドキュメント再構成：
+
+**Context 削減**: 常時ロード 80KB → 20KB （75%削減）
+- CLAUDE.md: 153行 → 80行（22%削減）
+- specifications.md: 954行 → 487行（49%削減）
+- practices.md: 725行 → 338行（53%削減）
+- 合計ドキュメント: 2,734行 → 1,305行（52%削減）
+
+**参照ドキュメント導入**:
+- `.claude/references/` ディレクトリ作成
+- `large-file-handling.md` - conversations.json処理（198行）
+- `implementation-details.md` - JSON ネスティング詳細（80行）
+- `README.md` - 参照インデックス
+
+**Skill説明文強化**:
+- 全6つのskillに絵文字追加（🧪🐛🪝📝⚙️💎）
+- トリガーキーワード明確化
+- "Use PROACTIVELY" 指針追加
+- 自動トリガー率向上を支援
+
+**重複排除**:
+- Test-First Principle → @tdd skill統一
+- Phase 0, Plan Revision → skill参照に変更
+- Exit Code 0 → CLAUDE.md Critical Rules 統一
+
+**効果**:
+- ✅ Progressive Disclosure 採用（JIT ロード）
+- ✅ Skill トリガー率向上（説明文強化）
+- ✅ 重要情報の可視性向上
+- ✅ 公式推奨ベストプラクティス準拠
+- ✅ 全テスト GREEN（9/9、100%パス）
+
+**関連ファイル**:
+- CLAUDE.md - 簡潔な公開API
+- .claude/development.md - セットアップ詳細
+- .claude/specifications.md - Hook/JSON仕様
+- .claude/practices.md - Worktree/Integration
+- .claude/skills/* - Skill説明文強化
+
+---
+
 ## 📝 その他のTODO
 
 （将来的な改善項目をここに追加）

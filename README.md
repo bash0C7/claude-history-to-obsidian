@@ -147,11 +147,14 @@ Example: `20251103-143022_implementing-feature_abc12345.md`
 
 ### Bulk Import Previous Sessions
 
-Import Claude Code sessions from your history:
+Import Claude Code or Claude Web sessions from your history:
 
 ```bash
-# Import all JSONL files from ~/.claude/projects/
-rake bulk_import
+# Import Claude Code sessions from ~/.claude/projects/
+rake code:bulk_import
+
+# Import Claude Web conversations from conversations.json
+CONVERSATIONS_JSON=~/Downloads/conversations.json rake web:bulk_import
 ```
 
 Progress is printed every 10 sessions. Files are created with timestamps from the original session start (idempotency guaranteed).
@@ -280,120 +283,6 @@ Install the optional `terminal-notifier` gem for macOS desktop notifications:
 bundle add terminal-notifier
 ```
 
-## Parallel Development with Worktrees
-
-Run multiple Claude Code sessions in parallel on different features without interference using git worktrees.
-
-### Why Use Worktrees?
-
-- ✅ **Isolated Environments**: Each worktree is completely independent
-- ✅ **No File Conflicts**: Changes in one session don't affect others
-- ✅ **Parallel Productivity**: Work on multiple features simultaneously
-- ✅ **Clean Merging**: Automatic merge handling with conflict resolution support
-- ✅ **Automatic Cleanup**: Sessions automatically clean up after completion
-
-### Quick Start
-
-```bash
-# Start a parallel development session
-@worktree-session feature-add-web-support
-
-# This creates a worktree at:
-# ~/.cache/claude-worktrees/claude-history-to-obsidian/feature-add-web-support/
-```
-
-The `worktree-session` subagent (available globally) will:
-1. Create an isolated git worktree
-2. Set up Ruby/Bundler environment
-3. Show you the worktree path
-4. Guide you to open Claude Code in the new worktree
-
-### Multiple Parallel Sessions
-
-You can safely run multiple worktrees in parallel:
-
-```
-Session 1 (main): Code review & planning
-  └─ @worktree-session feature-web-import
-
-Session 2 (separate): Feature implementation
-  └─ @worktree-session fix-encoding-bug
-
-Session 3 (another): Bug fix
-  (work independently in each)
-
-Each session completes and merges independently
-```
-
-### Session Completion
-
-When your Claude Code session in the worktree is complete:
-
-```bash
-# Merge the worktree back to main and cleanup
-@worktree-session --merge feature-add-web-support
-```
-
-The subagent will:
-1. Merge the worktree branch to main
-2. Resolve any conflicts (with support if needed)
-3. Delete the worktree
-4. Clean up the git branch
-
-### Worktree Storage
-
-Worktrees are stored in `~/.cache/claude-worktrees/{project-name}/{branch-name}/`:
-- **Cache location**: Non-intrusive to your main project
-- **Persistence**: Survives system restarts (unlike `/tmp/`)
-- **Manual cleanup**: Can be deleted anytime with `git worktree remove`
-
-### Best Practices
-
-1. **Branch Naming**: Use descriptive names
-   - `feature-web-import` (feature implementation)
-   - `fix-encoding-bug` (bug fix)
-   - `refactor-core-logic` (refactoring)
-
-2. **Conflict Handling**: If merge conflicts occur, the subagent provides:
-   - Clear conflict markers in files
-   - Guidance for resolution
-   - Ability to abort and retry
-
-3. **Environment Isolation**: Each worktree has:
-   - Independent `vendor/bundle/`
-   - Separate environment variables (e.g., log paths)
-   - Isolated temporary files
-
-4. **Session Management**:
-   - Keep each session focused on one feature/fix
-   - Merge early and often to avoid large conflicts
-   - Clean up completed worktrees promptly
-
-### Troubleshooting Worktrees
-
-**Worktree creation fails**:
-```bash
-# Check existing worktrees
-git worktree list
-
-# Remove orphaned worktree if needed
-git worktree remove --force ~/.cache/claude-worktrees/...
-```
-
-**Merge conflicts during completion**:
-```bash
-# The subagent will offer to help resolve conflicts
-# It shows you the conflicted files and guides resolution
-```
-
-**Slow environment setup**:
-```bash
-# First bundle install is slower; subsequent sessions are faster
-# Cache is reused across worktrees
-```
-
-For detailed worktree information, see **~/.claude/agents/worktree-session.md** (available globally in Claude Code).
-
 ## Troubleshooting
 
 ### Hook isn't running
@@ -446,66 +335,6 @@ tail -50 ~/.local/var/log/claude-history-to-obsidian.log
 tail -f ~/.local/var/log/claude-history-to-obsidian.log
 ```
 
-## How to Development
-
-### For Contributors & Maintainers
-
-This project uses **t-wada style Test-Driven Development** by default. For development tasks:
-
-**Setup**:
-1. Follow Installation steps above
-2. Read the development documentation:
-   - `CLAUDE.md` - Project overview and structure
-   - `.claude/development.md` - Dev environment and setup
-   - `.claude/specifications.md` - Technical specs
-   - `.claude/practices.md` - TDD methodology
-
-**Development Workflow**:
-1. Run tests: `bundle exec ruby -I lib:test -rtest/unit test/**/*.rb`
-2. Write failing test first (RED)
-3. Implement code to pass test (GREEN)
-4. Refactor while tests stay green (REFACTOR)
-5. Repeat
-
-**Key Rules**:
-- Always use `bundle exec ruby ...`
-- Never install gems globally
-- Use `/tmp/` for test data
-- Always exit 0 (even on errors)
-- Log errors to stderr and `~/.local/var/log/claude-history-to-obsidian.log`
-
-For detailed development guidance, see:
-- `@.claude/development.md` - Environment & commands
-- `@.claude/specifications.md` - Technical specs
-- `@.claude/practices.md` - TDD & best practices
-- `CLAUDE_TODO.md` - Implementation checklist
-
-## Contributing
-
-Contributions welcome! For development:
-
-```bash
-# Fork and clone
-git clone https://github.com/YOUR_FORK/claude-history-to-obsidian.git
-
-# Create feature branch
-git checkout -b feature/your-feature
-
-# Follow TDD workflow
-# Write tests, implement, refactor
-
-# Push and create PR
-git push origin feature/your-feature
-```
-
 ## License
 
 MIT
-
----
-
-## Support
-
-- **Issues**: Report bugs on [GitHub Issues](https://github.com/YOUR_USERNAME/claude-history-to-obsidian/issues)
-- **Documentation**: See `CLAUDE.md` for full technical documentation
-- **Logs**: Check `~/.local/var/log/claude-history-to-obsidian.log` for debugging

@@ -15,14 +15,14 @@ Configure the Hook in Claude Code settings:
 # Hook設定を .claude/settings.local.json に追加
 # (プロジェクトディレクトリで実行)
 
-cd /Users/bash/src/claude-history-to-obsidian
+cd ~/src/claude-history-to-obsidian
 
 cat > ~/.claude/settings.local.json <<'EOF'
 {
   "hooks": {
     "Stop": {
       "*": [{
-        "command": "cd /Users/bash/src/claude-history-to-obsidian && bundle exec ruby bin/claude-history-to-obsidian"
+        "command": "cd ~/src/claude-history-to-obsidian && bundle exec ruby bin/claude-history-to-obsidian"
       }]
     }
   }
@@ -55,7 +55,7 @@ cat > /tmp/hook-input-test.json <<EOF
 {
   "session_id": "$SESSION_ID",
   "transcript_path": "/tmp/test-transcript-$SESSION_ID.json",
-  "cwd": "/Users/bash/src/hook-test",
+  "cwd": "~/src/hook-test",
   "permission_mode": "default",
   "hook_event_name": "Stop"
 }
@@ -65,7 +65,7 @@ EOF
 cat > /tmp/test-transcript-$SESSION_ID.json <<'EOF2'
 {
   "session_id": "hook-test-session",
-  "cwd": "/Users/bash/src/hook-test",
+  "cwd": "~/src/hook-test",
   "messages": [
     {
       "role": "user",
@@ -104,7 +104,7 @@ Run the application as if triggered by the Hook:
 #!/bin/bash
 # Hook実行のシミュレーション
 
-cd /Users/bash/src/claude-history-to-obsidian
+cd ~/src/claude-history-to-obsidian
 
 # テストデータが存在することを確認
 if [ ! -f "/tmp/hook-input-test.json" ]; then
@@ -208,7 +208,7 @@ cat > /tmp/realistic-hook.json <<EOF
 {
   "session_id": "$SESSION_ID",
   "transcript_path": "/tmp/realistic-transcript-$SESSION_ID.json",
-  "cwd": "/Users/bash/src/Arduino/$PROJ_NAME",
+  "cwd": "~/src/Arduino/$PROJ_NAME",
   "permission_mode": "default",
   "hook_event_name": "Stop"
 }
@@ -218,7 +218,7 @@ EOF
 cat > /tmp/realistic-transcript-$SESSION_ID.json <<'EOF2'
 {
   "session_id": "realistic-session-123456789",
-  "cwd": "/Users/bash/src/Arduino/picoruby-recipes",
+  "cwd": "~/src/Arduino/picoruby-recipes",
   "messages": [
     {
       "role": "user",
@@ -243,7 +243,7 @@ EOF2
 echo "✅ Created realistic test files"
 echo ""
 echo "Running hook simulation..."
-cd /Users/bash/src/claude-history-to-obsidian
+cd ~/src/claude-history-to-obsidian
 cat /tmp/realistic-hook.json | bundle exec ruby bin/claude-history-to-obsidian
 
 echo ""
@@ -266,7 +266,7 @@ Test how the hook handles errors gracefully:
 #!/bin/bash
 # Hook エラーハンドリングのテスト
 
-cd /Users/bash/src/claude-history-to-obsidian
+cd ~/src/claude-history-to-obsidian
 
 echo "=== Testing Error Scenarios ==="
 echo ""
@@ -277,7 +277,7 @@ cat > /tmp/error-test-hook.json <<'EOF'
 {
   "session_id": "error-test-1",
   "transcript_path": "/tmp/nonexistent.json",
-  "cwd": "/Users/bash/src/test",
+  "cwd": "~/src/test",
   "permission_mode": "default",
   "hook_event_name": "Stop"
 }
@@ -306,7 +306,7 @@ cat > /tmp/empty-hook.json <<'EOF'
 {
   "session_id": "empty-test",
   "transcript_path": "/tmp/empty-transcript.json",
-  "cwd": "/Users/bash/src/empty",
+  "cwd": "~/src/empty",
   "permission_mode": "default",
   "hook_event_name": "Stop"
 }
@@ -315,7 +315,7 @@ EOF
 cat > /tmp/empty-transcript.json <<'EOF'
 {
   "session_id": "empty-test",
-  "cwd": "/Users/bash/src/empty",
+  "cwd": "~/src/empty",
   "messages": []
 }
 EOF
@@ -408,7 +408,7 @@ Run a full integration test:
 
 set -e
 
-PROJ_DIR="/Users/bash/src/claude-history-to-obsidian"
+PROJ_DIR="~/src/claude-history-to-obsidian"
 TEST_ID="e2e-$(date +%s)"
 
 echo "🧪 Complete End-to-End Hook Test"
@@ -422,7 +422,7 @@ cat > /tmp/e2e-hook.json <<EOF
 {
   "session_id": "$TEST_ID",
   "transcript_path": "/tmp/e2e-transcript-$TEST_ID.json",
-  "cwd": "/Users/bash/src/e2e-test",
+  "cwd": "~/src/e2e-test",
   "permission_mode": "default",
   "hook_event_name": "Stop"
 }
@@ -431,7 +431,7 @@ EOF
 cat > /tmp/e2e-transcript-$TEST_ID.json <<'EOF2'
 {
   "session_id": "e2e-session",
-  "cwd": "/Users/bash/src/e2e-test",
+  "cwd": "~/src/e2e-test",
   "messages": [
     {"role": "user", "content": "End to end hook test"},
     {"role": "assistant", "content": "Testing complete hook workflow"}
@@ -508,7 +508,7 @@ Quick reference for hook setup:
   "hooks": {
     "Stop": {
       "*": [{
-        "command": "cd /Users/bash/src/claude-history-to-obsidian && bundle exec ruby bin/claude-history-to-obsidian"
+        "command": "cd ~/src/claude-history-to-obsidian && bundle exec ruby bin/claude-history-to-obsidian"
       }]
     }
   }

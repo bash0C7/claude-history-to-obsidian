@@ -87,11 +87,11 @@ Using the global `worktree-session` subagent:
 **Concurrent Sessions**:
 ```bash
 # Terminal 1 - Main project analysis
-cd /Users/bash/src/claude-history-to-obsidian
+cd ~/src/claude-history-to-obsidian
 @worktree-session feature-web-import
 
 # Terminal 2 - Separate feature work
-cd /Users/bash/src/another-project
+cd ~/src/another-project
 @worktree-session fix-json-parsing
 
 # Each session is completely isolated

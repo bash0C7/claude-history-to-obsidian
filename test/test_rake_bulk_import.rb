@@ -29,7 +29,7 @@ class TestRakeBulkImport < Test::Unit::TestCase
       [
         {
           'sessionId' => 'abc123456789abc1',
-          'cwd' => '/Users/bash/src/picoruby-recipes',
+          'cwd' => '~/src/picoruby-recipes',
           'timestamp' => '2025-11-02T14:30:22.000Z',
           'message' => {
             'role' => 'user',
@@ -38,7 +38,7 @@ class TestRakeBulkImport < Test::Unit::TestCase
         },
         {
           'sessionId' => 'def234567890def2',
-          'cwd' => '/Users/bash/src/picoruby-recipes',
+          'cwd' => '~/src/picoruby-recipes',
           'timestamp' => '2025-11-02T15:00:00.000Z',
           'message' => {
             'role' => 'assistant',
@@ -53,7 +53,7 @@ class TestRakeBulkImport < Test::Unit::TestCase
       [
         {
           'sessionId' => 'ghi345678901ghi3',
-          'cwd' => '/Users/bash/src/arduino',
+          'cwd' => '~/src/arduino',
           'timestamp' => '2025-11-03T10:00:00.000Z',
           'message' => {
             'role' => 'user',

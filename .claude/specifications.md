@@ -21,7 +21,7 @@ Set up the Stop event hook in `.claude/settings.local.json`:
   "hooks": {
     "Stop": {
       "*": [{
-        "command": "cd /Users/bash/src/claude-history-to-obsidian && bundle exec ruby bin/claude-history-to-obsidian"
+        "command": "cd ~/src/claude-history-to-obsidian && bundle exec ruby bin/claude-history-to-obsidian"
       }]
     }
   }
@@ -40,8 +40,8 @@ The script handles both Hook mode and Bulk Import mode:
 ```json
 {
   "session_id": "abc123456789...",
-  "transcript_path": "/Users/bash/.claude/sessions/session-20251102-143022.json",
-  "cwd": "/Users/bash/src/Arduino/picoruby-recipes",
+  "transcript_path": "~/.claude/sessions/session-20251102-143022.json",
+  "cwd": "~/src/Arduino/picoruby-recipes",
   "project": "picoruby-recipes",
   "source": "code",
   "permission_mode": "default",
@@ -53,8 +53,8 @@ The script handles both Hook mode and Bulk Import mode:
 ```json
 {
   "session_id": "abc123456789...",
-  "transcript_path": "/Users/bash/.claude/sessions/session-20251102-143022.json",
-  "cwd": "/Users/bash/src/Arduino/picoruby-recipes",
+  "transcript_path": "~/.claude/sessions/session-20251102-143022.json",
+  "cwd": "~/src/Arduino/picoruby-recipes",
   "project": "picoruby-recipes",
   "source": "web",
   "permission_mode": "default",
@@ -80,14 +80,14 @@ The script handles both Hook mode and Bulk Import mode:
   "session_id": "abc123456789...",
   "transcript": {
     "session_id": "abc123456789...",
-    "cwd": "/Users/bash/src/Arduino/picoruby-recipes",
+    "cwd": "~/src/Arduino/picoruby-recipes",
     "messages": [
       {"role": "user", "content": "...", "timestamp": "2025-11-02T14:30:22.000Z"},
       {"role": "assistant", "content": "...", "timestamp": "2025-11-02T14:30:25.000Z"}
     ],
     "_first_message_timestamp": "20251102-143022"
   },
-  "cwd": "/Users/bash/src/Arduino/picoruby-recipes",
+  "cwd": "~/src/Arduino/picoruby-recipes",
   "project": "picoruby-recipes",
   "source": "code",
   "permission_mode": "default",
@@ -180,7 +180,7 @@ Vault location is determined by the `source` field:
 
 **Claude Code** (`source: "code"`):
 ```
-/Users/bash/Library/Mobile Documents/iCloud~md~obsidian/Documents/ObsidianVault/Claude Code/
+~/Library/Mobile Documents/iCloud~md~obsidian/Documents/ObsidianVault/Claude Code/
 ├── picoruby-recipes/
 │   ├── 20251102-143022_implementing-feature_abc12345.md
 │   ├── 20251102-150000_fixing-bug_def67890.md
@@ -193,7 +193,7 @@ Vault location is determined by the `source` field:
 
 **Claude Web** (`source: "web"`):
 ```
-/Users/bash/Library/Mobile Documents/iCloud~md~obsidian/Documents/ObsidianVault/claude.ai/
+~/Library/Mobile Documents/iCloud~md~obsidian/Documents/ObsidianVault/claude.ai/
 ├── picoruby-recipes/
 │   ├── 20251102-143022_implementing-feature_abc12345.md
 │   ├── 20251102-150000_fixing-bug_def67890.md
@@ -269,7 +269,7 @@ The header differs based on `source`:
 # Claude Code Session
 
 **Project**: project-name
-**Path**: /Users/bash/src/Arduino/picoruby-recipes
+**Path**: ~/src/Arduino/picoruby-recipes
 **Session ID**: abc123456789...
 **Date**: 2025-11-02 14:30:22
 ```
@@ -279,7 +279,7 @@ The header differs based on `source`:
 # Claude Web Session
 
 **Project**: project-name
-**Path**: /Users/bash/src/Arduino/picoruby-recipes
+**Path**: ~/src/Arduino/picoruby-recipes
 **Session ID**: abc123456789...
 **Date**: 2025-11-02 14:30:22
 ```
@@ -325,7 +325,7 @@ The `transcript_path` (Hook mode) or `transcript.messages` (Bulk Import) points 
 ```json
 {
   "session_id": "abc123456789...",
-  "cwd": "/Users/bash/src/Arduino/picoruby-recipes",
+  "cwd": "~/src/Arduino/picoruby-recipes",
   "messages": [
     {"role": "user", "content": "..."},
     {"role": "assistant", "content": "..."},

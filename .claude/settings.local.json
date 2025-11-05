@@ -18,7 +18,8 @@
       "Bash(cat:*)",
       "Bash(rake web:import_conversations:*)",
       "Bash(bundle exec rake test:*)",
-      "Bash(echo:*)"
+      "Bash(echo:*)",
+      "Bash(find:*)"
     ],
     "deny": [
       "Bash(git remote remove:*)",

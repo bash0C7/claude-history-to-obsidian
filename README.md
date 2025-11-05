@@ -20,7 +20,7 @@ A lightweight Ruby CLI tool that captures your Claude Code and Claude Web sessio
 - **macOS** (requires iCloud Drive for Obsidian vault sync)
 - **Ruby 3.4.7** (managed by rbenv)
 - **Bundler** (for gem management)
-- **Obsidian** installed with vault at: `/Users/bash/Library/Mobile Documents/iCloud~md~obsidian/Documents/ObsidianVault/`
+- **Obsidian** installed with vault at: `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/ObsidianVault/`
 
 ## Installation
 
@@ -58,7 +58,7 @@ Add this hook to your `.claude/settings.local.json` or `.claude/settings.json`:
   "hooks": {
     "Stop": {
       "*": [{
-        "command": "cd /Users/bash/src/claude-history-to-obsidian && bundle exec ruby bin/claude-history-to-obsidian"
+        "command": "cd ~/src/claude-history-to-obsidian && bundle exec ruby bin/claude-history-to-obsidian"
       }]
     }
   }
@@ -95,7 +95,7 @@ cat > /tmp/test-input.json <<'EOF'
 {
   "session_id": "test123456789",
   "transcript_path": "/tmp/test-transcript.json",
-  "cwd": "/Users/bash/src/test-project",
+  "cwd": "~/src/test-project",
   "project": "test-project",
   "source": "code",
   "permission_mode": "default",
@@ -106,7 +106,7 @@ EOF
 cat > /tmp/test-transcript.json <<'EOF'
 {
   "session_id": "test123456789",
-  "cwd": "/Users/bash/src/test-project",
+  "cwd": "~/src/test-project",
   "messages": [
     {"role": "user", "content": "Implementing the feature for button handling", "timestamp": "2025-11-03T10:00:00.000Z"},
     {"role": "assistant", "content": "I'll help you implement the button handling feature...", "timestamp": "2025-11-03T10:00:05.000Z"}
@@ -231,7 +231,7 @@ The Hook endpoint in `.claude/settings.local.json`:
 
 The script writes to a hardcoded path (macOS iCloud Drive):
 ```
-/Users/bash/Library/Mobile Documents/iCloud~md~obsidian/Documents/ObsidianVault/Claude Code/
+~/Library/Mobile Documents/iCloud~md~obsidian/Documents/ObsidianVault/Claude Code/
 ```
 
 Make sure your Obsidian vault is set to this location (or update CLAUDE.md specifications if needed).

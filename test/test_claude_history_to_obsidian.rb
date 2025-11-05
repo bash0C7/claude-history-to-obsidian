@@ -604,7 +604,7 @@ class TestClaudeHistoryToObsidian < Test::Unit::TestCase
       transcript_path = File.join(test_dir, 'transcript.json')
       transcript_data = {
         'session_id' => 'hook-test-123',
-        'cwd' => '/Users/bash/src/test-project-hook',
+        'cwd' => '~/src/test-project-hook',
         'messages' => [
           {'role' => 'user', 'content' => 'Testing hook mode integration', 'timestamp' => '2025-11-03T10:00:00.000Z'},
           {'role' => 'assistant', 'content' => 'Hook mode test response', 'timestamp' => '2025-11-03T10:00:05.000Z'}
@@ -616,7 +616,7 @@ class TestClaudeHistoryToObsidian < Test::Unit::TestCase
       hook_input = {
         'session_id' => 'hook-test-123',
         'transcript_path' => transcript_path,
-        'cwd' => '/Users/bash/src/test-project-hook',
+        'cwd' => '~/src/test-project-hook',
         'permission_mode' => 'default',
         'hook_event_name' => 'Stop'
       }
@@ -659,12 +659,12 @@ class TestClaudeHistoryToObsidian < Test::Unit::TestCase
     # トランスクリプトを直接埋め込んだ Hook JSON
     hook_input = {
       'session_id' => 'bulk-test-456',
-      'cwd' => '/Users/bash/src/test-project-bulk',
+      'cwd' => '~/src/test-project-bulk',
       'permission_mode' => 'default',
       'hook_event_name' => 'Stop',
       'transcript' => {
         'session_id' => 'bulk-test-456',
-        'cwd' => '/Users/bash/src/test-project-bulk',
+        'cwd' => '~/src/test-project-bulk',
         'messages' => [
           {'role' => 'user', 'content' => 'Bulk import mode test', 'timestamp' => '2025-11-03T11:00:00.000Z'},
           {'role' => 'assistant', 'content' => 'Bulk import response', 'timestamp' => '2025-11-03T11:00:05.000Z'}

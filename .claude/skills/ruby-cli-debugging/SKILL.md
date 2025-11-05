@@ -102,7 +102,7 @@ Run the script with debug output:
 #!/bin/bash
 # Rubyデバッガーでの実行
 
-cd /Users/bash/src/claude-history-to-obsidian
+cd ~/src/claude-history-to-obsidian
 
 echo "=== Running with Debug Output ==="
 echo ""
@@ -112,7 +112,7 @@ cat > /tmp/debug-hook.json <<'EOF'
 {
   "session_id": "debug-test",
   "transcript_path": "/tmp/debug-transcript.json",
-  "cwd": "/Users/bash/src/debug",
+  "cwd": "~/src/debug",
   "permission_mode": "default",
   "hook_event_name": "Stop"
 }
@@ -121,7 +121,7 @@ EOF
 cat > /tmp/debug-transcript.json <<'EOF'
 {
   "session_id": "debug-test",
-  "cwd": "/Users/bash/src/debug",
+  "cwd": "~/src/debug",
   "messages": [
     {"role": "user", "content": "Debug test"},
     {"role": "assistant", "content": "Testing debug output"}
@@ -160,7 +160,7 @@ cat > "$HOOK_JSON" <<'EOF'
 {
   "session_id": "inspect-test",
   "transcript_path": "/tmp/inspect-transcript.json",
-  "cwd": "/Users/bash/src/inspect",
+  "cwd": "~/src/inspect",
   "permission_mode": "default",
   "hook_event_name": "Stop"
 }
@@ -186,7 +186,7 @@ TRANSCRIPT_JSON=/tmp/inspect-transcript.json
 cat > "$TRANSCRIPT_JSON" <<'EOF'
 {
   "session_id": "inspect-test",
-  "cwd": "/Users/bash/src/inspect",
+  "cwd": "~/src/inspect",
   "messages": [
     {"role": "user", "content": "User message"},
     {"role": "assistant", "content": "Assistant response"}
@@ -290,7 +290,7 @@ TRANSCRIPT_FILE="$TEST_DIR/transcript.json"
 cat > "$TRANSCRIPT_FILE" <<'EOF'
 {
   "session_id": "trace-test",
-  "cwd": "/Users/bash/src/trace",
+  "cwd": "~/src/trace",
   "messages": [
     {"role": "user", "content": "Test"},
     {"role": "assistant", "content": "Response"}
@@ -418,7 +418,7 @@ require 'json'
 # テスト用データ
 data = {
   "session_id" => "markdown-test-12345",
-  "cwd" => "/Users/bash/src/test-project",
+  "cwd" => "~/src/test-project",
   "messages" => [
     {"role" => "user", "content" => "Test user message"},
     {"role" => "assistant", "content" => "Test assistant response\n\n```ruby\nputs 'code block'\n```"}
@@ -473,7 +473,7 @@ Validate Ruby script syntax:
 #!/bin/bash
 # Ruby スクリプト構文チェック
 
-cd /Users/bash/src/claude-history-to-obsidian
+cd ~/src/claude-history-to-obsidian
 
 echo "=== Ruby Syntax Check ==="
 echo ""
@@ -498,7 +498,7 @@ Debug gem-related issues:
 #!/bin/bash
 # Gem 依存関係のデバッグ
 
-cd /Users/bash/src/claude-history-to-obsidian
+cd ~/src/claude-history-to-obsidian
 
 echo "=== Gem Dependency Debug ==="
 echo ""
@@ -527,7 +527,7 @@ Check script performance:
 #!/bin/bash
 # パフォーマンスデバッグ
 
-cd /Users/bash/src/claude-history-to-obsidian
+cd ~/src/claude-history-to-obsidian
 
 echo "=== Performance Debug ==="
 echo ""
@@ -537,7 +537,7 @@ cat > /tmp/perf-hook.json <<'EOF'
 {
   "session_id": "perf-test",
   "transcript_path": "/tmp/perf-transcript.json",
-  "cwd": "/Users/bash/src/perf",
+  "cwd": "~/src/perf",
   "permission_mode": "default",
   "hook_event_name": "Stop"
 }
@@ -546,7 +546,7 @@ EOF
 cat > /tmp/perf-transcript.json <<'EOF'
 {
   "session_id": "perf-test",
-  "cwd": "/Users/bash/src/perf",
+  "cwd": "~/src/perf",
   "messages": [
     {"role": "user", "content": "Performance test message"},
     {"role": "assistant", "content": "Response"}
@@ -609,14 +609,14 @@ Execute with maximum verbosity:
 #!/bin/bash
 # デバッグモードでの実行
 
-cd /Users/bash/src/claude-history-to-obsidian
+cd ~/src/claude-history-to-obsidian
 
 # テストデータ
 cat > /tmp/verbose-hook.json <<'EOF'
 {
   "session_id": "verbose-test",
   "transcript_path": "/tmp/verbose-transcript.json",
-  "cwd": "/Users/bash/src/verbose",
+  "cwd": "~/src/verbose",
   "permission_mode": "default",
   "hook_event_name": "Stop"
 }
@@ -625,7 +625,7 @@ EOF
 cat > /tmp/verbose-transcript.json <<'EOF'
 {
   "session_id": "verbose-test",
-  "cwd": "/Users/bash/src/verbose",
+  "cwd": "~/src/verbose",
   "messages": [
     {"role": "user", "content": "Verbose test"},
     {"role": "assistant", "content": "Testing verbose output"}

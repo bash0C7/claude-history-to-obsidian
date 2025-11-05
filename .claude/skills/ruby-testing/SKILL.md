@@ -17,7 +17,7 @@ cat > /tmp/hook-input.json <<'EOF'
 {
   "session_id": "test123456789abc",
   "transcript_path": "/tmp/test-transcript.json",
-  "cwd": "/Users/bash/src/test-project",
+  "cwd": "~/src/test-project",
   "permission_mode": "default",
   "hook_event_name": "Stop"
 }
@@ -27,7 +27,7 @@ EOF
 cat > /tmp/test-transcript.json <<'EOF'
 {
   "session_id": "test123456789abc",
-  "cwd": "/Users/bash/src/test-project",
+  "cwd": "~/src/test-project",
   "messages": [
     {"role": "user", "content": "Implementing the feature for button handling"},
     {"role": "assistant", "content": "I'll help you implement the button handling feature. Here's what we need to do:\n\n```ruby\nclass ButtonHandler\n  def initialize\n    @state = :idle\n  end\nend\n```"},
@@ -38,7 +38,7 @@ cat > /tmp/test-transcript.json <<'EOF'
 EOF
 
 # スクリプト実行テスト
-cd /Users/bash/src/claude-history-to-obsidian
+cd ~/src/claude-history-to-obsidian
 cat /tmp/hook-input.json | bundle exec ruby bin/claude-history-to-obsidian
 ```
 
@@ -85,7 +85,7 @@ fi
 cat > /tmp/minimal-transcript.json <<'EOF'
 {
   "session_id": "minimal789",
-  "cwd": "/Users/bash/src/minimal",
+  "cwd": "~/src/minimal",
   "messages": [
     {"role": "user", "content": "Help"},
     {"role": "assistant", "content": "Sure!"}
@@ -97,7 +97,7 @@ cat > /tmp/minimal-hook.json <<'EOF'
 {
   "session_id": "minimal789",
   "transcript_path": "/tmp/minimal-transcript.json",
-  "cwd": "/Users/bash/src/minimal",
+  "cwd": "~/src/minimal",
   "permission_mode": "default",
   "hook_event_name": "Stop"
 }
@@ -111,7 +111,7 @@ cat /tmp/minimal-hook.json | bundle exec ruby bin/claude-history-to-obsidian
 cat > /tmp/long-name-transcript.json <<'EOF'
 {
   "session_id": "longname456",
-  "cwd": "/Users/bash/src/very-long-project-name",
+  "cwd": "~/src/very-long-project-name",
   "messages": [
     {"role": "user", "content": "Implementing comprehensive error handling with retry logic and exponential backoff strategies"},
     {"role": "assistant", "content": "I'll help implement this..."}
@@ -123,7 +123,7 @@ cat > /tmp/long-name-hook.json <<'EOF'
 {
   "session_id": "longname456",
   "transcript_path": "/tmp/long-name-transcript.json",
-  "cwd": "/Users/bash/src/very-long-project-name",
+  "cwd": "~/src/very-long-project-name",
   "permission_mode": "default",
   "hook_event_name": "Stop"
 }
@@ -137,7 +137,7 @@ cat /tmp/long-name-hook.json | bundle exec ruby bin/claude-history-to-obsidian
 cat > /tmp/special-transcript.json <<'EOF'
 {
   "session_id": "special123",
-  "cwd": "/Users/bash/src/special-project",
+  "cwd": "~/src/special-project",
   "messages": [
     {"role": "user", "content": "Fix: bug@#$% in the API—shouldn't break!"},
     {"role": "assistant", "content": "Got it!"}
@@ -149,7 +149,7 @@ cat > /tmp/special-hook.json <<'EOF'
 {
   "session_id": "special123",
   "transcript_path": "/tmp/special-transcript.json",
-  "cwd": "/Users/bash/src/special-project",
+  "cwd": "~/src/special-project",
   "permission_mode": "default",
   "hook_event_name": "Stop"
 }
@@ -206,7 +206,7 @@ Run with additional debugging to see internal state:
 ```bash
 # デバッグ用環境変数を設定してスクリプト実行
 # (lib/claude_history_to_obsidian.rb で DEBUG 対応している場合)
-cd /Users/bash/src/claude-history-to-obsidian
+cd ~/src/claude-history-to-obsidian
 DEBUG=1 cat /tmp/hook-input.json | bundle exec ruby bin/claude-history-to-obsidian
 ```
 
@@ -220,7 +220,7 @@ Full end-to-end test simulating the hook scenario:
 
 set -e
 
-PROJ_DIR="/Users/bash/src/claude-history-to-obsidian"
+PROJ_DIR="~/src/claude-history-to-obsidian"
 TEST_SESSION_ID="integration-$(date +%s)"
 
 echo "📋 Setting up test data..."
@@ -229,7 +229,7 @@ echo "📋 Setting up test data..."
 cat > /tmp/integration-transcript.json <<EOF
 {
   "session_id": "$TEST_SESSION_ID",
-  "cwd": "/Users/bash/src/integration-test",
+  "cwd": "~/src/integration-test",
   "messages": [
     {"role": "user", "content": "Integration test for session management"},
     {"role": "assistant", "content": "Testing the full workflow..."},
@@ -244,7 +244,7 @@ cat > /tmp/integration-hook.json <<EOF
 {
   "session_id": "$TEST_SESSION_ID",
   "transcript_path": "/tmp/integration-transcript.json",
-  "cwd": "/Users/bash/src/integration-test",
+  "cwd": "~/src/integration-test",
   "permission_mode": "default",
   "hook_event_name": "Stop"
 }

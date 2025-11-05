@@ -80,7 +80,7 @@ cat > /tmp/hook-input.json <<'EOF'
 {
   "session_id": "test123456789",
   "transcript_path": "/tmp/test-transcript.json",
-  "cwd": "/Users/bash/src/test-project",
+  "cwd": "~/src/test-project",
   "permission_mode": "default",
   "hook_event_name": "Stop"
 }
@@ -90,7 +90,7 @@ EOF
 cat > /tmp/test-transcript.json <<'EOF'
 {
   "session_id": "test123456789",
-  "cwd": "/Users/bash/src/test-project",
+  "cwd": "~/src/test-project",
   "messages": [
     {"role": "user", "content": "Implementing the feature for button handling", "timestamp": "2025-11-03T10:00:00.000Z"},
     {"role": "assistant", "content": "I'll help you implement the button handling feature...", "timestamp": "2025-11-03T10:00:05.000Z"}
@@ -199,7 +199,7 @@ Follow Ruby community style (no Rails conventions):
 
 ### System Paths (Write-Only)
 
-- **Obsidian vault**: `/Users/bash/Library/Mobile Documents/iCloud~md~obsidian/Documents/ObsidianVault/Claude Code/`
+- **Obsidian vault**: `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/ObsidianVault/Claude Code/`
 - **Logs**: `~/.local/var/log/claude-history-to-obsidian.log`
 
 ---

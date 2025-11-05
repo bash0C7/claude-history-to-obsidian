@@ -13,7 +13,7 @@ Verify the current bundler configuration:
 
 ```bash
 # bundler設定確認
-cd /Users/bash/src/claude-history-to-obsidian
+cd ~/src/claude-history-to-obsidian
 
 echo "=== Ruby Version ==="
 ruby -v
@@ -44,7 +44,7 @@ cat Gemfile
 If bundler hasn't been configured yet:
 
 ```bash
-cd /Users/bash/src/claude-history-to-obsidian
+cd ~/src/claude-history-to-obsidian
 
 # .bundler ディレクトリ設定（vendor/bundle にGemをインストール）
 bundle config set --local path vendor/bundle
@@ -67,7 +67,7 @@ bundle exec ruby -v
 Install a new gem with vendor isolation:
 
 ```bash
-cd /Users/bash/src/claude-history-to-obsidian
+cd ~/src/claude-history-to-obsidian
 
 # 新しいGemを追加（bundlerで管理）
 # 例：terminal-notifier をすでに Gemfile に記載済み
@@ -91,7 +91,7 @@ head -30 Gemfile.lock
 Update dependencies safely:
 
 ```bash
-cd /Users/bash/src/claude-history-to-obsidian
+cd ~/src/claude-history-to-obsidian
 
 # 全てのGemを最新版に更新（ロックファイル更新）
 bundle update
@@ -109,7 +109,7 @@ git diff Gemfile.lock | head -50
 Remove a gem from the project:
 
 ```bash
-cd /Users/bash/src/claude-history-to-obsidian
+cd ~/src/claude-history-to-obsidian
 
 # Gemfile から gem 行を削除（手動編集）
 # または bundle remove (Bundler 2.1+)
@@ -124,7 +124,7 @@ bundle install
 Ensure gems are NEVER installed globally:
 
 ```bash
-cd /Users/bash/src/claude-history-to-obsidian
+cd ~/src/claude-history-to-obsidian
 
 echo "=== Checking for Global Gem Pollution ==="
 
@@ -151,7 +151,7 @@ bundle list
 Verify all gems are properly installed:
 
 ```bash
-cd /Users/bash/src/claude-history-to-obsidian
+cd ~/src/claude-history-to-obsidian
 
 # Gemfile.lock との一致確認
 bundle check
@@ -167,7 +167,7 @@ bundle list --depth 1
 Fix common bundler problems:
 
 ```bash
-cd /Users/bash/src/claude-history-to-obsidian
+cd ~/src/claude-history-to-obsidian
 
 echo "=== Troubleshooting Steps ==="
 
@@ -197,7 +197,7 @@ bundle check
 Remove gems that are no longer needed:
 
 ```bash
-cd /Users/bash/src/claude-history-to-obsidian
+cd ~/src/claude-history-to-obsidian
 
 # 使用されていないGemをクリーン
 bundle clean
@@ -213,7 +213,7 @@ echo "Cleanup complete"
 Pin a gem to a specific version:
 
 ```bash
-cd /Users/bash/src/claude-history-to-obsidian
+cd ~/src/claude-history-to-obsidian
 
 # 特定バージョンをGemfile に明示指定
 # gem 'gem-name', '~> 2.0.0'
@@ -233,7 +233,7 @@ bundle list | grep terminal
 Recompile native C extensions if needed:
 
 ```bash
-cd /Users/bash/src/claude-history-to-obsidian
+cd ~/src/claude-history-to-obsidian
 
 # ネイティブ拡張の再構築
 bundle exec ruby -e "puts Bundler::GemHelper.new.gemspec"
@@ -250,7 +250,7 @@ bundle install --with-native-extensions
 Generate a portable bundle lock:
 
 ```bash
-cd /Users/bash/src/claude-history-to-obsidian
+cd ~/src/claude-history-to-obsidian
 
 # Gemfile.lock をテキストで表示（共有用）
 echo "=== Gemfile.lock Content ==="
@@ -265,7 +265,7 @@ bundle list --local
 Always run Ruby scripts through bundler:
 
 ```bash
-cd /Users/bash/src/claude-history-to-obsidian
+cd ~/src/claude-history-to-obsidian
 
 echo "❌ WRONG - Don't do this:"
 echo "ruby bin/claude-history-to-obsidian"
@@ -284,7 +284,7 @@ cat /tmp/test.json | bundle exec ruby bin/claude-history-to-obsidian --help 2>/d
 Find outdated gems:
 
 ```bash
-cd /Users/bash/src/claude-history-to-obsidian
+cd ~/src/claude-history-to-obsidian
 
 echo "=== Checking for Outdated Gems ==="
 bundle outdated

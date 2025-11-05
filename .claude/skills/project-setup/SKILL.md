@@ -15,7 +15,7 @@ Run comprehensive environment validation:
 #!/bin/bash
 # プロジェクト環境の完全検証
 
-PROJ_DIR="/Users/bash/src/claude-history-to-obsidian"
+PROJ_DIR="~/src/claude-history-to-obsidian"
 
 echo "=========================================="
 echo "Claude History to Obsidian - Setup Check"
@@ -146,7 +146,7 @@ echo "=========================================="
 Initialize a clean environment:
 
 ```bash
-cd /Users/bash/src/claude-history-to-obsidian
+cd ~/src/claude-history-to-obsidian
 
 echo "Step 1: Verify Ruby version..."
 ruby -v
@@ -176,7 +176,7 @@ echo "✅ Setup complete!"
 Check that all required directories exist:
 
 ```bash
-cd /Users/bash/src/claude-history-to-obsidian
+cd ~/src/claude-history-to-obsidian
 
 echo "=== Required Directory Structure ==="
 tree -L 2 -a --gitignore 2>/dev/null || find . -type f -not -path './vendor/*' -not -path './.git/*' | head -20
@@ -212,7 +212,7 @@ rbenv versions
 
 echo ""
 echo "Local project Ruby version:"
-cd /Users/bash/src/claude-history-to-obsidian
+cd ~/src/claude-history-to-obsidian
 rbenv local
 
 echo ""
@@ -234,7 +234,7 @@ fi
 Check that hook setup is ready:
 
 ```bash
-cd /Users/bash/src/claude-history-to-obsidian
+cd ~/src/claude-history-to-obsidian
 
 echo "=== Hook Configuration ==="
 
@@ -255,7 +255,7 @@ else
   "hooks": {
     "Stop": {
       "*": [{
-        "command": "cd /Users/bash/src/claude-history-to-obsidian && bundle exec ruby bin/claude-history-to-obsidian"
+        "command": "cd ~/src/claude-history-to-obsidian && bundle exec ruby bin/claude-history-to-obsidian"
       }]
     }
   }
@@ -269,7 +269,7 @@ fi
 Initialize missing directories:
 
 ```bash
-cd /Users/bash/src/claude-history-to-obsidian
+cd ~/src/claude-history-to-obsidian
 
 echo "Creating required directories..."
 
@@ -290,7 +290,7 @@ echo "✅ Directories ready"
 Check Gemfile syntax and requirements:
 
 ```bash
-cd /Users/bash/src/claude-history-to-obsidian
+cd ~/src/claude-history-to-obsidian
 
 echo "=== Gemfile Validation ==="
 
@@ -314,7 +314,7 @@ Before starting development:
 #!/bin/bash
 # 開発開始前のチェックリスト
 
-PROJ_DIR="/Users/bash/src/claude-history-to-obsidian"
+PROJ_DIR="~/src/claude-history-to-obsidian"
 cd "$PROJ_DIR" || exit 1
 
 echo "Pre-Development Checklist"
@@ -414,7 +414,7 @@ Set up helpful development environment variables:
 
 ```bash
 # ~/.zshrc または ~/.bash_profile に追加
-export PROJ_ROOT=/Users/bash/src/claude-history-to-obsidian
+export PROJ_ROOT=~/src/claude-history-to-obsidian
 export VAULT_PATH="$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents/ObsidianVault/Claude Code"
 export LOG_FILE="$HOME/.local/var/log/claude-history-to-obsidian.log"
 
@@ -445,7 +445,7 @@ bundle config set --local path vendor/bundle
 bundle install
 
 # Set executable permissions
-chmod +x /Users/bash/src/claude-history-to-obsidian/bin/claude-history-to-obsidian
+chmod +x ~/src/claude-history-to-obsidian/bin/claude-history-to-obsidian
 
 # Create logging directory
 mkdir -p ~/.local/var/log
@@ -461,7 +461,7 @@ When first opening this project in Claude Code:
    ```bash
    # Use this to run full setup check
    bash << 'EOF'
-   PROJ_DIR="/Users/bash/src/claude-history-to-obsidian"
+   PROJ_DIR="~/src/claude-history-to-obsidian"
    cd "$PROJ_DIR" || exit 1
 
    # Quick checks
@@ -478,7 +478,7 @@ When first opening this project in Claude Code:
 
 **Before starting work**:
 ```bash
-cd /Users/bash/src/claude-history-to-obsidian
+cd ~/src/claude-history-to-obsidian
 
 # Verify nothing changed since last session
 git status
@@ -538,7 +538,7 @@ which claude-history-to-obsidian
 # Should output: ~/.local/bin/claude-history-to-obsidian
 
 # Or via bundle
-cd /Users/bash/src/claude-history-to-obsidian
+cd ~/src/claude-history-to-obsidian
 bundle exec which ruby
 ```
 

@@ -31,7 +31,7 @@ git subtree add --prefix {path} {repo-url} {branch}
 
 **Example**:
 ```bash
-cd /Users/bash/src/dotfiles
+cd ~/src/dotfiles
 git subtree add --prefix tools/claude-history-to-obsidian \
   https://github.com/user/claude-history-to-obsidian.git main
 ```

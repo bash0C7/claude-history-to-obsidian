@@ -336,6 +336,12 @@ class ClaudeHistoryToObsidian
 
   def save_to_vault(vault_dir, filename, content)
     filepath = File.join(vault_dir, filename)
+
+    # ファイルが既に存在する場合は警告ログを出す
+    if File.exist?(filepath)
+      log("WARNING: Overwriting existing file: #{filepath}")
+    end
+
     File.write(filepath, content)
     log("Saved markdown to: #{filepath}")
   rescue StandardError => e

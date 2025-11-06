@@ -159,52 +159,138 @@ ISO 8601   Time obj    localtime     YYYYMMDD    Markdown
 
 ### 実装タスク
 
-#### タスク1: ローカル調査（事前準備）
+#### タスク1: ローカル調査（事前準備）✅ 完了
 
 **目的**: Claude Code/Webの実際のタイムスタンプフォーマットを確認
 
-**調査項目**:
-1. **Claude Codeセッションファイル**:
-   ```bash
-   # セッションファイルのサンプル確認
-   ls -la ~/.claude/sessions/
-   cat ~/.claude/sessions/session-YYYYMMDD-HHMMSS.json | head -50
+**調査結果** (2025-11-06):
 
-   # timestampフィールドのフォーマット確認
-   cat ~/.claude/sessions/session-*.json | jq '.messages[0].timestamp' | head -5
-   ```
+**1. Claude Code トランスクリプト形式**:
+```json
+{
+  "session_id": "abc123456789...",
+  "cwd": "~/src/project",
+  "messages": [
+    {
+      "role": "user",
+      "content": "User message text",
+      "timestamp": "2025-11-03T14:30:22.000Z"
+    },
+    {
+      "role": "assistant",
+      "content": "Assistant response",
+      "timestamp": "2025-11-03T14:30:25.000Z"
+    }
+  ]
+}
+```
 
-   **確認ポイント**:
-   - ISO 8601形式か？ (`2025-11-03T14:30:22.000Z`)
-   - タイムゾーン情報は含まれているか？ (`Z`サフィックスまたは`+09:00`など)
-   - ローカルタイムか、UTCか？
+**タイムスタンプ形式**: ISO 8601 UTC (Z サフィックス付き)
 
-2. **Claude Webエクスポートファイル**:
-   ```bash
-   # conversations.jsonのサンプル確認
-   cat ~/Downloads/conversations.json | jq '.[] | .messages[0].timestamp' | head -5
-   ```
+---
 
-   **確認ポイント**:
-   - Claude Codeと同じフォーマットか？
-   - タイムゾーン情報の有無
-   - 既にローカルタイムに変換済みか、UTCか？
+**2. Claude Web エクスポートファイル (conversations.json) 形式**:
 
-3. **既存の取り込み済みファイルの確認**:
-   ```bash
-   # Obsidian vaultのファイル名を確認
-   ls -la ~/Library/Mobile\ Documents/iCloud~md~obsidian/Documents/ObsidianVault/Claude\ Code/*/
+**ファイル情報**:
+- サイズ: 97MB
+- 形式: 単一行JSON配列 `[{...}, {...}, ...]`
+- ロケーション: `/Users/bash/src/claude-history-to-obsidian/conversations.json`
 
-   # ファイル名のタイムスタンプと、ファイル内のDateフィールドを比較
-   head -10 ~/Library/.../Claude\ Code/project/20251103-*.md
-   ```
+**Conversation オブジェクト**:
+```json
+{
+  "uuid": "d20c59c1-c755-4926-a2f8-ed1dc4bd0a52",
+  "name": "Session name",
+  "summary": "...",
+  "created_at": "2025-10-29T11:07:25.622604Z",
+  "updated_at": "2025-10-29T11:07:27.223563Z",
+  "account": { "uuid": "..." },
+  "chat_messages": [...]
+}
+```
 
-   **確認ポイント**:
-   - ファイル名のタイムスタンプは正しいか？
-   - **Date**フィールドの時刻は正しいか？
-   - ズレがある場合、何時間ずれているか？ (UTCとJSTなら9時間)
+**Message オブジェクト (chat_messages 内)**:
+```json
+{
+  "uuid": "24f64562-21a6-4513-b186-fce0b76b28ad",
+  "text": "Message text content",
+  "content": [
+    {
+      "type": "text",
+      "text": "Actual text content",
+      "start_timestamp": "2025-10-29T12:09:40.296328Z",
+      "stop_timestamp": "2025-10-29T12:09:40.296328Z",
+      "citations": []
+    },
+    {
+      "type": "thinking",
+      "thinking": "Thinking process",
+      "summaries": [...]
+    }
+  ],
+  "sender": "human",
+  "created_at": "2025-10-29T12:09:40.310021Z",
+  "attachments": [],
+  "files": []
+}
+```
 
-**調査結果の記録場所**: このセクションに追記、または`.claude/references/timestamp-investigation.md`に記録
+**タイムスタンプ形式**: ISO 8601 UTC (Z サフィックス付き)
+
+---
+
+**3. 主な違い (Claude Code vs Claude Web)**:
+
+| 項目 | Claude Code | Claude Web |
+|------|-------------|------------|
+| role / sender | `role: "user"` | `sender: "human"` |
+| role / sender | `role: "assistant"` | `sender: "assistant"` |
+| Content 形式 | String または Array | **常に Array** |
+| Timestamp フィールド | `timestamp` | `created_at` |
+| UUID フィールド | `session_id` | `uuid` |
+| ネスティング | メッセージは配列直下 | `chat_messages` フィールド内 |
+
+---
+
+**4. 既存実装の確認** (Rakefile:81-126):
+
+**Web import Rakefile は既に完全実装済み** ✅
+
+実装内容:
+- ✅ UTF-8 エンコーディング処理 (invalid: :replace)
+- ✅ JSON 単一行パース対応
+- ✅ Conversation 配列イテレーション
+- ✅ sender → role 変換 (human → user)
+- ✅ content Array 形式処理
+- ✅ `source: 'web'` パラメータ対応
+- ✅ Vault ルーティング (`CLAUDE_WEB_VAULT_PATH`)
+- ✅ yyyymm ディレクトリ構造対応
+
+詳細は `.claude/references/claude-web-import-analysis.md` に記載
+
+---
+
+**5. タイムゾーン処理の現状**:
+
+**問題箇所**:
+- `lib/claude_history_to_obsidian.rb:300` - `extract_session_timestamp` に `.localtime` 不足
+- `Rakefile:203` - `extract_first_message_timestamp` に `.localtime` 不足
+- `lib/claude_history_to_obsidian.rb:165` - `build_markdown` が `Time.now` (取り込み時刻) を使用
+
+**データフロー**:
+```
+入力: "2025-11-03T14:30:22.000Z" (UTC)
+  ↓ Time.parse
+Timeオブジェクト (UTC として認識)
+  ↓ .localtime (修正が必要)
+Timeオブジェクト (ローカルタイム変換済み)
+  ↓ .strftime
+出力: "20251103-233022" (JST なら +9時間)
+```
+
+---
+
+**調査結果の記録場所**: `.claude/references/claude-web-import-analysis.md` に詳細記載
 
 #### タスク2: `extract_session_timestamp`の修正
 
@@ -455,11 +541,39 @@ def test_timezone_handling_hook_mode_with_utc_timestamp
 end
 ```
 
-#### タスク6: ドキュメント更新
+#### タスク6: ドキュメント更新 ✅ 完了
 
+**実施内容** (2025-11-06):
+
+**1. CLAUDE_TODO.md - タスク1 調査結果追記** ✅
+- Claude Code トランスクリプト形式の詳細記載
+- Claude Web conversations.json 形式の詳細記載
+- 主な違いを比較表で記載
+- 既存 Rakefile 実装の確認 ✅
+
+**2. 新規参考ドキュメント作成** ✅
+
+**`.claude/references/claude-web-import-analysis.md`** (2025-11-06)
+- ✅ データ構造比較（Claude Code vs Web）
+- ✅ conversations.json の詳細スキーマ
+- ✅ Content Array 処理の詳細
+- ✅ フォーマット変換マッピング
+- ✅ Rakefile 実装の詳細コード
+- ✅ Vault ディレクトリ構造
+- ✅ 実装状況チェックリスト
+
+**`.claude/references/timezone-fix-specification.md`** (2025-11-06)
+- ✅ 問題の概要と具体例
+- ✅ 修正対象メソッド4つの詳細仕様
+- ✅ テスト実装の詳細コード
+- ✅ エンドツーエンドテスト仕様
+- ✅ データ変換の具体例（JST/UTC）
+- ✅ 成功条件チェックリスト
+
+**3. `.claude/specifications.md` 更新予定** ⏳
 **ファイル**: `.claude/specifications.md`
 
-**更新箇所**: 「Transcript JSON Input Format」セクション
+**追記箇所**: 「Transcript JSON Input Format」セクション
 
 **追記内容**:
 ```markdown
@@ -484,7 +598,12 @@ Time.parse(timestamp_string).localtime.strftime('%Y%m%d-%H%M%S')
 - ユーザーの作業時刻として認識しやすい
 - Claude Code/Web両方で一貫性を保つ
 - Obsidianで閲覧時に直感的
+
+**参考ドキュメント**:
+- `.claude/references/timezone-fix-specification.md` - 修正の詳細仕様
 ```
+
+**計画**: Claude Code on Web で実装後に追記予定
 
 #### タスク7: テスト実行とカバレッジ確認
 

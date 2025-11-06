@@ -80,10 +80,16 @@ Works with both Claude Code and Claude Web:
 4. Check your vault under `Claude Code/{project-name}/`
 
 **Claude Web**:
-1. Configure your application to send Hook JSON with `"source": "web"`
-2. Use Claude Web as usual
-3. When saving a session, it sends the Hook to this script
-4. Check your vault under `claude.ai/{project-name}/`
+Claude Web does not have native Hook support like Claude Code. Instead, use **Bulk Import**:
+
+1. Export your Claude Web conversations to a JSON file
+2. Use the bulk import task to process them:
+   ```bash
+   rake bulk_import
+   ```
+3. Sessions are saved to your vault under `claude.ai/{project-name}/`
+
+Note: You can still use this script with Claude Web if your platform provides Hook support. Set `"source": "web"` in the Hook JSON input to route files to the `claude.ai/` vault folder.
 
 ### Manual Testing
 

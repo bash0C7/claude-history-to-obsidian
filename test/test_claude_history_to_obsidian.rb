@@ -164,6 +164,68 @@ class TestClaudeHistoryToObsidian < Test::Unit::TestCase
     assert_equal 'debug-memory-leak-in-backgroun', name
   end
 
+  # TEST: extract_session_name with array containing missing type field
+  def test_extract_session_name_with_array_missing_type_field
+    processor = ClaudeHistoryToObsidian.new
+
+    # contentが配列形式で、type フィールドが missing（スキップされる）
+    messages = [
+      {
+        'role' => 'user',
+        'content' => [
+          {'text' => 'Fix bug without type'},  # スキップ（type なし）
+          {'type' => 'text', 'text' => 'in system'}  # これが使用される
+        ]
+      }
+    ]
+
+    name = processor.send(:extract_session_name, messages)
+    # type フィールドがないブロックはスキップされるので、"in system" だけが処理される
+    # 最初の30文字: "in system"
+    # 正規化後: "in-system"
+    assert_equal 'in-system', name
+  end
+
+  # TEST: extract_session_name with array containing nil elements
+  def test_extract_session_name_with_array_containing_nil_elements
+    processor = ClaudeHistoryToObsidian.new
+
+    # contentが配列形式で、nil が含まれる
+    messages = [
+      {
+        'role' => 'user',
+        'content' => [
+          {'type' => 'text', 'text' => 'Test with nil'},
+          nil,
+          'plaintext content'
+        ]
+      }
+    ]
+
+    name = processor.send(:extract_session_name, messages)
+    # "Test with nil plaintext content"
+    # 最初の30文字: "Test with nil plaintext conten"
+    # 正規化後: "test-with-nil-plaintext-conten"
+    assert_equal 'test-with-nil-plaintext-conten', name
+  end
+
+  # TEST: extract_session_name with empty array content
+  def test_extract_session_name_with_empty_array_content
+    processor = ClaudeHistoryToObsidian.new
+
+    # contentが空配列
+    messages = [
+      {
+        'role' => 'user',
+        'content' => []
+      }
+    ]
+
+    name = processor.send(:extract_session_name, messages)
+    # 空配列の場合はデフォルト値を返すべき
+    assert_equal 'session', name
+  end
+
   def test_extract_session_timestamp_from_field
     processor = ClaudeHistoryToObsidian.new
     transcript = {

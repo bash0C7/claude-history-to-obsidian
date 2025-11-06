@@ -213,6 +213,10 @@ project_dir = File.join(vault_base, project_name)
 
 ### File Naming Format
 
+File naming format differs based on the `source` field (Claude Code vs Claude Web):
+
+#### Claude Code Format (`source: "code"`)
+
 ```
 {YYYYMMDD-HHMMSS}_{session-name}_{session-id-first-8}.md
 ```
@@ -226,6 +230,24 @@ project_dir = File.join(vault_base, project_name)
 | Date/Time | `YYYYMMDD-HHMMSS` | `Time.now.strftime('%Y%m%d-%H%M%S')` | `20251103-143022` |
 | Session Name | Slug (30 chars max) | First user message | `implementing-feature` |
 | Session ID | First 8 characters | `session_id` field | `abc12345` |
+
+#### Claude Web Format (`source: "web"`)
+
+```
+{YYYYMMDD-HHMMSS}_{project-name}_{session-name}.md
+```
+
+**Example**: `20251103-143022_picoruby-recipes_implementing-feature.md`
+
+**Components**:
+
+| Component | Format | Source | Example |
+|---|---|---|---|
+| Date/Time | `YYYYMMDD-HHMMSS` | `Time.now.strftime('%Y%m%d-%H%M%S')` | `20251103-143022` |
+| Project Name | Project slug | `project` field or `cwd` basename | `picoruby-recipes` |
+| Session Name | Slug (30 chars max) | First user message | `implementing-feature` |
+
+**Note**: Web format uses project name instead of session ID for file uniqueness and clarity in Web-based workflows. This improves discoverability when organizing files by project in the Claude Web vault.
 
 ### Session Name Extraction Logic
 

@@ -380,6 +380,48 @@ end
 | JSON parse errors | Log and continue | 0 |
 | Permission denied | Log error, skip file | 0 |
 
+### Exit Code Behavior by Mode
+
+The application handles errors differently depending on execution mode:
+
+**Hook Mode** (Claude Code Stop event):
+- **Always exits with 0** (even on errors)
+- **Rationale**: Prevents blocking Claude Code execution
+- **User notification**: Errors logged to file and written to stderr
+- **Use case**: End-of-session transcript capture
+- **Entry point**: `bin/claude-history-to-obsidian` with Hook JSON on stdin
+
+**Bulk Import Mode** (`rake bulk_import` task):
+- **Exits with 1 on errors** (non-zero on failure)
+- **Rationale**: Allows error detection in batch processing
+- **User notification**: Errors logged; session count printed
+- **Use case**: Processing multiple sessions from JSONL files
+- **Entry point**: `Rakefile` tasks for batch processing
+
+**Implementation Logic**:
+```ruby
+# Hook mode: Catch all errors and exit 0 (Kernel#run method)
+begin
+  processor = ClaudeHistoryToObsidian.new
+  processor.run  # Reads stdin, processes transcript
+rescue StandardError => e
+  STDERR.puts "Error: #{e.message}"
+  log("ERROR: #{e.message}")
+  exit 0  # Always exit 0 for Hook compatibility
+end
+
+# Bulk Import mode: Allow errors to propagate (Rakefile)
+task :bulk_import do
+  # Errors raise exceptions, allow exit code to reflect status
+  # Rakefile task fails if any error occurs
+end
+```
+
+**Error Reporting**:
+- Both modes write detailed errors to `~/.local/var/log/claude-history-to-obsidian.log`
+- Both modes write immediate feedback to stderr
+- Bulk Import provides per-session error tracking in logs
+
 ---
 
 ## 📌 Important Notes

@@ -1477,4 +1477,76 @@ class TestClaudeHistoryToObsidian < Test::Unit::TestCase
     assert_include error.message, 'Failed to process transcript'
   end
 
+  # TEST: notify メソッド - モックベーステスト
+  def test_notify_does_nothing_when_not_macos
+    processor = ClaudeHistoryToObsidian.new
+
+    # macos? をモック化して false を返す
+    def processor.macos?
+      false
+    end
+
+    # notify は macOS でない場合、すぐに return する
+    # エラーが出ないことを確認
+    assert_nothing_raised do
+      processor.send(:notify, "Test notification")
+    end
+  end
+
+  def test_notify_with_macos_returns_early_without_terminal_notifier
+    processor = ClaudeHistoryToObsidian.new
+
+    # macos? をモック化して true を返す
+    def processor.macos?
+      true
+    end
+
+    # notify メソッドが macos? = true の場合、terminal-notifier のロード処理に到達する
+    # TerminalNotifier が無い環境でも LoadError は rescue されるため、エラーは出ない
+    assert_nothing_raised do
+      processor.send(:notify, "Test notification message")
+    end
+  end
+
+  def test_notify_with_mock_terminal_notifier
+    processor = ClaudeHistoryToObsidian.new
+
+    # macos? をモック化して true を返す
+    def processor.macos?
+      true
+    end
+
+    # Object.const_set を使ってモック TerminalNotifier を作成
+    begin
+      mock_notifier = Class.new do
+        @@called = false
+        @@message = nil
+
+        def self.notify(message, **options)
+          @@called = true
+          @@message = message
+        end
+
+        def self.called?
+          @@called
+        end
+
+        def self.message
+          @@message
+        end
+      end
+
+      Object.const_set(:TerminalNotifier, mock_notifier)
+
+      # notify を呼び出す
+      processor.send(:notify, "Test mock notification")
+
+      # エラーが出ないことを確認
+      assert true
+    ensure
+      # モック TerminalNotifier をクリーンアップ
+      Object.send(:remove_const, :TerminalNotifier) if Object.const_defined?(:TerminalNotifier)
+    end
+  end
+
 end

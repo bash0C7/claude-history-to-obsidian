@@ -16,7 +16,9 @@ Use **@tdd** skill for detailed TDD methodology including:
 
 ## 🌳 Git Subtree Management
 
-For detailed Git Subtree workflows, see **@.claude/skills/git-subtree-management/SKILL.md**
+**Note**: This project does not currently use Git Subtree. This section is retained for reference if Git Subtree is adopted in the future.
+
+For detailed Git Subtree workflows, see **@.claude/skills/git-subtree-management/SKILL.md** (external reference)
 
 ---
 

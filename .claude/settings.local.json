@@ -22,7 +22,8 @@
       "Bash(find:*)",
       "Bash(git checkout:*)",
       "Bash(bundle config:*)",
-      "Bash(bundle install:*)"
+      "Bash(bundle install:*)",
+      "Bash(bundle exec rake:*)"
     ],
     "deny": [
       "Bash(git remote remove:*)",

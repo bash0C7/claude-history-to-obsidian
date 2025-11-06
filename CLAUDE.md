@@ -47,6 +47,10 @@ tail -f ~/.local/var/log/claude-history-to-obsidian.log
 - **ALWAYS bundle exec** - Never global gems
 - **Test-First Only** - Use @tdd skill for TDD workflow
 - **Never touch**: .git/, vendor/, Gemfile.lock
+- **Commit Frequently**: Create meaningful commits for every completed task (feature, fix, docs, refactor)
+  - Use `git add` to stage changes
+  - Use `git commit -m "message"` to record work
+  - Keep commit history clean and descriptive
 
 ## 📚 Documentation (JIT Loading)
 

@@ -1190,4 +1190,113 @@ class TestClaudeHistoryToObsidian < Test::Unit::TestCase
     assert markdown.include?('**Session ID**: test123456789'), 'Markdown should include session ID'
   end
 
+  # === カバレッジ90%+達成のためのテスト ===
+
+  # TEST: format_log_message with non-Hash/Array/String (else branch coverage)
+  def test_format_log_message_with_number
+    processor = ClaudeHistoryToObsidian.new
+
+    number_message = 12345
+    result = processor.send(:format_log_message, number_message)
+
+    # 数値は to_s で文字列化される
+    assert_equal '12345', result
+  end
+
+  # TEST: format_log_message with symbol
+  def test_format_log_message_with_symbol
+    processor = ClaudeHistoryToObsidian.new
+
+    symbol_message = :test_symbol
+    result = processor.send(:format_log_message, symbol_message)
+
+    # シンボルは to_s で文字列化される
+    assert_equal 'test_symbol', result
+  end
+
+  # TEST: extract_session_timestamp with invalid timestamp format (rescue coverage)
+  def test_extract_session_timestamp_with_invalid_format
+    processor = ClaudeHistoryToObsidian.new
+
+    # 無効なタイムスタンプフォーマット
+    transcript_invalid = {
+      'messages' => [
+        {'role' => 'user', 'content' => 'Test', 'timestamp' => 'invalid-timestamp-format'}
+      ]
+    }
+
+    # Time.parseに失敗してrescueブロックに入り、nilを返す
+    timestamp = processor.send(:extract_session_timestamp, transcript_invalid)
+    assert_nil timestamp, 'Invalid timestamp should return nil'
+  end
+
+  # TEST: save_to_vault with write error (rescue coverage)
+  def test_save_to_vault_with_write_error
+    processor = ClaudeHistoryToObsidian.new
+
+    # 書き込み不可能なパスを指定（存在しないディレクトリ）
+    invalid_dir = '/tmp/non_existent_directory_12345_test'
+    filename = 'test.md'
+    content = 'Test content'
+
+    # ディレクトリが存在しないため、書き込みエラーが発生してrescueブロックに入り、例外が再raiseされる
+    assert_raise(Errno::ENOENT) do
+      processor.send(:save_to_vault, invalid_dir, filename, content)
+    end
+  end
+
+  # TEST: ensure_directories with mkdir error (rescue coverage)
+  def test_ensure_directories_with_mkdir_error
+    processor = ClaudeHistoryToObsidian.new
+
+    # FileUtils.mkdir_pをスタブして例外を投げる
+    original_mkdir_p = FileUtils.method(:mkdir_p)
+    FileUtils.define_singleton_method(:mkdir_p) do |path|
+      raise Errno::EACCES, "Permission denied - #{path}"
+    end
+
+    begin
+      # ディレクトリ作成が失敗してrescueブロックに入り、例外が再raiseされる
+      assert_raise(Errno::EACCES) do
+        processor.send(:ensure_directories, 'test-project')
+      end
+    ensure
+      # 元のメソッドに戻す
+      FileUtils.define_singleton_method(:mkdir_p, original_mkdir_p)
+    end
+  end
+
+  # TEST: process_transcript with exception (rescue coverage for 90%+ goal)
+  def test_process_transcript_with_build_markdown_error
+    processor = ClaudeHistoryToObsidian.new
+
+    # build_markdownをスタブして例外を投げる
+    def processor.build_markdown(**args)
+      raise StandardError, "Simulated build_markdown error"
+    end
+
+    transcript = {
+      'session_id' => 'test-error-123',
+      'cwd' => '/test/project',
+      'messages' => [
+        {'role' => 'user', 'content' => 'Test'},
+        {'role' => 'assistant', 'content' => 'Response'}
+      ],
+      '_first_message_timestamp' => '20251106-100000'
+    }
+
+    # process_transcriptがrescueブロックに入り、例外が再raiseされる
+    error = assert_raise(RuntimeError) do
+      processor.process_transcript(
+        project_name: 'test-error-project',
+        cwd: '/test/project',
+        session_id: 'test-error-123',
+        transcript: transcript,
+        messages: transcript['messages']
+      )
+    end
+
+    assert_include error.message, 'Failed to process transcript'
+  end
+
 end

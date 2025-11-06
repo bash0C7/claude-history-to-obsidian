@@ -211,6 +211,29 @@ project_name = hook_input['project'] || File.basename(hook_input['cwd'])
 project_dir = File.join(vault_base, project_name)
 ```
 
+### Timestamp & Timezone Handling
+
+Timestamps in transcripts are processed to display in the user's local timezone:
+
+**Processing Flow**:
+1. Extract ISO 8601 timestamp from message (`2025-11-02T14:30:22.000Z`)
+2. Parse and convert to UTC: `Time.parse(timestamp).utc`
+3. Convert to local timezone: `utc_time.getlocal`
+4. Format for display with timezone offset (e.g., `2025-11-02 14:30:22 +09:00`)
+
+**Timestamp Idempotency**:
+- File naming uses the **first user message timestamp** for session identification
+- This ensures consistent filenames across multiple imports of the same session
+- Method: `extract_session_timestamp(transcript)` returns `YYYYMMDD-HHMMSS` format
+
+**Timezone Details**:
+- **Claude Code (Hook)**: Uses first message timestamp from transcript
+- **Claude Web (Bulk Import)**: Falls back to `_first_message_timestamp` field or parses from messages
+- **Markdown Header**: Shows local time with timezone offset (e.g., "2025-11-02 14:30:22 +09:00")
+- **Timezone Offset**: Calculated from system local timezone at time of session creation
+
+For comprehensive timezone handling specifications, see **[@.claude/references/timezone-fix-specification.md](./references/timezone-fix-specification.md)**.
+
 ### File Naming Format
 
 File naming format differs based on the `source` field (Claude Code vs Claude Web):

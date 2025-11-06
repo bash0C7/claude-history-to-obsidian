@@ -185,7 +185,8 @@ class TestClaudeHistoryToObsidian < Test::Unit::TestCase
     }
 
     timestamp = processor.send(:extract_session_timestamp, transcript)
-    assert_equal '20251103-143022', timestamp
+    # UTC統一: Z サフィックス付き
+    assert_equal '20251103-143022Z', timestamp
   end
 
   def test_extract_session_timestamp_returns_nil_when_missing
@@ -206,7 +207,7 @@ class TestClaudeHistoryToObsidian < Test::Unit::TestCase
     assert_nil timestamp
   end
 
-  def test_extract_session_timestamp_converts_utc_to_local
+  def test_extract_session_timestamp_keeps_utc_with_z_suffix
     processor = ClaudeHistoryToObsidian.new
 
     # UTCタイムスタンプ (2025-11-03 14:30:22 UTC)
@@ -216,14 +217,10 @@ class TestClaudeHistoryToObsidian < Test::Unit::TestCase
       ]
     }
 
-    # タイムゾーンをJST (UTC+9) に変更してテスト
-    with_env('TZ' => 'Asia/Tokyo') do
-      timestamp = processor.send(:extract_session_timestamp, transcript)
+    timestamp = processor.send(:extract_session_timestamp, transcript)
 
-      # JST (UTC+9) の場合: 2025-11-03 23:30:22
-      expected = Time.parse('2025-11-03T14:30:22.000Z').localtime.strftime('%Y%m%d-%H%M%S')
-      assert_equal expected, timestamp, 'Should convert UTC to JST (UTC+9)'
-    end
+    # UTC統一: ローカルタイム変換せず、Zサフィックス付き
+    assert_equal '20251103-143022Z', timestamp, 'Should keep UTC time with Z suffix'
   end
 
   def test_extract_session_time_returns_time_object
@@ -679,15 +676,13 @@ class TestClaudeHistoryToObsidian < Test::Unit::TestCase
 
         filename = File.basename(files[0])
 
-        # ファイル名のタイムスタンプがローカルタイムに変換されている
-        # JSTなら 05:00 UTC → 14:00 JST (UTC+9)
-        # UTCなら 05:00 UTC → 05:00 UTC
-        expected_local_time = Time.parse('2025-11-03T05:00:00.000Z').localtime.strftime('%Y%m%d-%H%M%S')
-        assert filename.start_with?(expected_local_time), "Filename should start with local time: #{filename}"
+        # UTC統一: ファイル名のタイムスタンプはUTCのまま、Zサフィックス付き
+        expected_utc_time = '20251103-050000Z'
+        assert filename.start_with?(expected_utc_time), "Filename should start with UTC time: #{filename}"
 
-        # ファイル内のDateフィールドも確認
+        # ファイル内のDateフィールドもUTC統一
         content = File.read(files[0])
-        expected_date_str = Time.parse('2025-11-03T05:00:00.000Z').localtime.strftime('%Y-%m-%d %H:%M:%S')
+        expected_date_str = '2025-11-03 05:00:00 +0000'
         assert_include content, "**Date**: #{expected_date_str}"
       ensure
         # クリーンアップ
@@ -1319,12 +1314,12 @@ class TestClaudeHistoryToObsidian < Test::Unit::TestCase
       messages: messages
     )
 
-    # セッション開始時刻が使用されている（現在時刻ではない）
-    expected_date = Time.parse('2025-10-01T10:00:00.000Z').localtime.strftime('%Y-%m-%d %H:%M:%S')
+    # UTC統一: セッション開始時刻がUTCで使用されている
+    expected_date = '2025-10-01 10:00:00 +0000'
     assert_include markdown, "**Date**: #{expected_date}"
 
     # 現在時刻は含まれていない
-    current_date = Time.now.strftime('%Y-%m-%d')
+    current_date = Time.now.utc.strftime('%Y-%m-%d')
     assert !markdown.include?("**Date**: #{current_date}") || current_date == '2025-10-01',
            'Should not include current date unless it matches session date'
   end
@@ -1347,6 +1342,29 @@ class TestClaudeHistoryToObsidian < Test::Unit::TestCase
 
     # タイムスタンプ取得失敗時は 'Unknown'
     assert_include markdown, '**Date**: Unknown'
+  end
+
+  def test_build_markdown_includes_explicit_timezone_offset
+    processor = ClaudeHistoryToObsidian.new
+
+    # タイムスタンプ付きメッセージ
+    messages = [
+      {'role' => 'user', 'content' => 'Test', 'timestamp' => '2025-11-03T14:30:22.000Z'},
+      {'role' => 'assistant', 'content' => 'Response', 'timestamp' => '2025-11-03T14:30:25.000Z'}
+    ]
+
+    markdown = processor.send(:build_markdown,
+      project_name: 'test-project',
+      cwd: '/test/path',
+      session_id: 'test123',
+      messages: messages
+    )
+
+    # UTC統一: タイムゾーンオフセット +0000 が明示的に含まれている
+    expected_timestamp_with_tz = '2025-11-03 14:30:22 +0000'
+
+    assert_include markdown, "**Date**: #{expected_timestamp_with_tz}",
+                   'Markdown should include UTC timezone (+0000)'
   end
 
   # === カバレッジ90%+達成のためのテスト ===

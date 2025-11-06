@@ -163,9 +163,10 @@ class ClaudeHistoryToObsidian
 
   def build_markdown(project_name:, cwd:, session_id:, messages:, source: 'code')
     # セッション開始時刻を使用（Time.now は使わない）
-    session_time = extract_session_time(messages)
-    timestamp = session_time ?
-      session_time.localtime.strftime('%Y-%m-%d %H:%M:%S') :
+    # UTC統一: ローカルタイム変換せず、UTCのまま使用
+    utc_time = extract_session_time(messages)
+    timestamp = utc_time ?
+      utc_time.utc.strftime('%Y-%m-%d %H:%M:%S +0000') :  # UTC統一、タイムゾーン明示
       'Unknown'  # タイムスタンプ取得失敗時
 
     session_type = source == 'web' ? 'Claude Web Session' : 'Claude Code Session'
@@ -301,9 +302,11 @@ class ClaudeHistoryToObsidian
     first_msg = messages.first
     return nil unless first_msg['timestamp']
 
-    # ISO 8601形式のタイムスタンプをYYYYMMDD-HHMMSSに変換
-    # ローカルタイムゾーンに変換
-    Time.parse(first_msg['timestamp']).localtime.strftime('%Y%m%d-%H%M%S')
+    # ISO 8601形式のタイムスタンプをYYYYMMDD-HHMMSSZに変換
+    # UTC統一: ローカルタイム変換せず、UTCのまま使用
+    # タイムゾーン明示のため Z サフィックス追加
+    utc_time = Time.parse(first_msg['timestamp']).utc
+    utc_time.strftime('%Y%m%d-%H%M%SZ')
   rescue StandardError => e
     log("WARNING: Failed to extract session timestamp: #{e.message}")
     nil
@@ -351,11 +354,13 @@ class ClaudeHistoryToObsidian
     log_dir = File.dirname(LOG_FILE_PATH)
     FileUtils.mkdir_p(log_dir) unless Dir.exist?(log_dir)
 
-    timestamp = Time.now.localtime.strftime('%Y-%m-%d %H:%M:%S %z')
+    # タイムゾーンを明示的に扱う: 現在時刻をローカルタイムで取得
+    local_time = Time.now.getlocal
+    timestamp_with_tz = local_time.strftime('%Y-%m-%d %H:%M:%S %z')
     formatted_message = format_log_message(message)
 
     File.open(LOG_FILE_PATH, 'a') do |f|
-      f.puts "[#{timestamp}] #{formatted_message}"
+      f.puts "[#{timestamp_with_tz}] #{formatted_message}"
     end
   rescue StandardError => e
     warn "Failed to write log: #{e.message}"

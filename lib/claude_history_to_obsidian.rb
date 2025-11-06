@@ -162,7 +162,12 @@ class ClaudeHistoryToObsidian
   end
 
   def build_markdown(project_name:, cwd:, session_id:, messages:, source: 'code')
-    timestamp = Time.now.strftime('%Y-%m-%d %H:%M:%S')
+    # セッション開始時刻を使用（Time.now は使わない）
+    session_time = extract_session_time(messages)
+    timestamp = session_time ?
+      session_time.localtime.strftime('%Y-%m-%d %H:%M:%S') :
+      'Unknown'  # タイムスタンプ取得失敗時
+
     session_type = source == 'web' ? 'Claude Web Session' : 'Claude Code Session'
 
     output = []
@@ -297,9 +302,24 @@ class ClaudeHistoryToObsidian
     return nil unless first_msg['timestamp']
 
     # ISO 8601形式のタイムスタンプをYYYYMMDD-HHMMSSに変換
-    Time.parse(first_msg['timestamp']).strftime('%Y%m%d-%H%M%S')
+    # ローカルタイムゾーンに変換
+    Time.parse(first_msg['timestamp']).localtime.strftime('%Y%m%d-%H%M%S')
   rescue StandardError => e
     log("WARNING: Failed to extract session timestamp: #{e.message}")
+    nil
+  end
+
+  # メッセージ配列から最初のメッセージのTimeオブジェクトを取得
+  # build_markdownで使用（Dateフィールド生成用）
+  def extract_session_time(messages)
+    return nil unless messages && messages.length > 0
+
+    first_msg = messages.first
+    return nil unless first_msg['timestamp']
+
+    Time.parse(first_msg['timestamp'])  # Timeオブジェクトを返す
+  rescue StandardError => e
+    log("WARNING: Failed to parse session time: #{e.message}")
     nil
   end
 

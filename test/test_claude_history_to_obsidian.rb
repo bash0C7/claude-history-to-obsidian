@@ -206,6 +206,58 @@ class TestClaudeHistoryToObsidian < Test::Unit::TestCase
     assert_nil timestamp
   end
 
+  def test_extract_session_timestamp_converts_utc_to_local
+    processor = ClaudeHistoryToObsidian.new
+
+    # UTCタイムスタンプ (2025-11-03 14:30:22 UTC)
+    transcript = {
+      'messages' => [
+        {'role' => 'user', 'content' => 'Test', 'timestamp' => '2025-11-03T14:30:22.000Z'}
+      ]
+    }
+
+    # タイムゾーンをJST (UTC+9) に変更してテスト
+    with_env('TZ' => 'Asia/Tokyo') do
+      timestamp = processor.send(:extract_session_timestamp, transcript)
+
+      # JST (UTC+9) の場合: 2025-11-03 23:30:22
+      expected = Time.parse('2025-11-03T14:30:22.000Z').localtime.strftime('%Y%m%d-%H%M%S')
+      assert_equal expected, timestamp, 'Should convert UTC to JST (UTC+9)'
+    end
+  end
+
+  def test_extract_session_time_returns_time_object
+    processor = ClaudeHistoryToObsidian.new
+
+    messages = [
+      {'role' => 'user', 'content' => 'Test', 'timestamp' => '2025-11-03T14:30:22.000Z'}
+    ]
+
+    time_obj = processor.send(:extract_session_time, messages)
+
+    assert_instance_of Time, time_obj
+    assert_equal Time.parse('2025-11-03T14:30:22.000Z'), time_obj
+  end
+
+  def test_extract_session_time_returns_nil_for_invalid_timestamp
+    processor = ClaudeHistoryToObsidian.new
+
+    messages = [
+      {'role' => 'user', 'content' => 'Test', 'timestamp' => 'invalid-format'}
+    ]
+
+    time_obj = processor.send(:extract_session_time, messages)
+    assert_nil time_obj
+  end
+
+  def test_extract_session_time_returns_nil_for_empty_messages
+    processor = ClaudeHistoryToObsidian.new
+
+    messages = []
+    time_obj = processor.send(:extract_session_time, messages)
+    assert_nil time_obj
+  end
+
   def test_generate_filename_format
     processor = ClaudeHistoryToObsidian.new
     transcript = {
@@ -580,6 +632,67 @@ class TestClaudeHistoryToObsidian < Test::Unit::TestCase
     ensure
       # クリーンアップ
       FileUtils.rm_rf(project_dir)
+    end
+  end
+
+  def test_hook_mode_timezone_handling_end_to_end
+    processor = ClaudeHistoryToObsidian.new
+
+    Dir.mktmpdir do |test_dir|
+      # UTCタイムスタンプのトランスクリプトファイルを作成
+      transcript_path = File.join(test_dir, 'transcript.json')
+      transcript_data = {
+        'session_id' => 'tz-test-001',
+        'cwd' => '~/src/test-tz',
+        'messages' => [
+          {'role' => 'user', 'content' => 'Testing timezone', 'timestamp' => '2025-11-03T05:00:00.000Z'},
+          {'role' => 'assistant', 'content' => 'Response', 'timestamp' => '2025-11-03T05:00:05.000Z'}
+        ]
+      }
+      File.write(transcript_path, JSON.generate(transcript_data))
+
+      # Hook JSON
+      hook_input = {
+        'session_id' => 'tz-test-001',
+        'transcript_path' => transcript_path,
+        'cwd' => '~/src/test-tz',
+        'permission_mode' => 'default',
+        'hook_event_name' => 'Stop'
+      }
+
+      vault_base = ClaudeHistoryToObsidian::CLAUDE_CODE_VAULT_PATH
+      project_dir = File.join(vault_base, 'test-tz')
+
+      begin
+        # 実行
+        with_stdin(JSON.generate(hook_input)) do
+          begin
+            processor.run
+          rescue SystemExit => e
+            assert_equal 0, e.status
+          end
+        end
+
+        # ファイル確認
+        files = Dir.glob(File.join(project_dir, '*.md'))
+        assert files.length > 0, 'File should be created'
+
+        filename = File.basename(files[0])
+
+        # ファイル名のタイムスタンプがローカルタイムに変換されている
+        # JSTなら 05:00 UTC → 14:00 JST (UTC+9)
+        # UTCなら 05:00 UTC → 05:00 UTC
+        expected_local_time = Time.parse('2025-11-03T05:00:00.000Z').localtime.strftime('%Y%m%d-%H%M%S')
+        assert filename.start_with?(expected_local_time), "Filename should start with local time: #{filename}"
+
+        # ファイル内のDateフィールドも確認
+        content = File.read(files[0])
+        expected_date_str = Time.parse('2025-11-03T05:00:00.000Z').localtime.strftime('%Y-%m-%d %H:%M:%S')
+        assert_include content, "**Date**: #{expected_date_str}"
+      ensure
+        # クリーンアップ
+        FileUtils.rm_rf(project_dir) if Dir.exist?(project_dir)
+      end
     end
   end
 
@@ -1188,6 +1301,52 @@ class TestClaudeHistoryToObsidian < Test::Unit::TestCase
     assert markdown.include?('# Claude Web Session'), 'Markdown should have Web session header'
     assert markdown.include?('**Project**: test-project'), 'Markdown should include project name'
     assert markdown.include?('**Session ID**: test123456789'), 'Markdown should include session ID'
+  end
+
+  def test_build_markdown_uses_session_timestamp_not_current_time
+    processor = ClaudeHistoryToObsidian.new
+
+    # 過去のタイムスタンプ
+    messages = [
+      {'role' => 'user', 'content' => 'Test', 'timestamp' => '2025-10-01T10:00:00.000Z'},
+      {'role' => 'assistant', 'content' => 'Response', 'timestamp' => '2025-10-01T10:00:05.000Z'}
+    ]
+
+    markdown = processor.send(:build_markdown,
+      project_name: 'test-project',
+      cwd: '/test/path',
+      session_id: 'test123',
+      messages: messages
+    )
+
+    # セッション開始時刻が使用されている（現在時刻ではない）
+    expected_date = Time.parse('2025-10-01T10:00:00.000Z').localtime.strftime('%Y-%m-%d %H:%M:%S')
+    assert_include markdown, "**Date**: #{expected_date}"
+
+    # 現在時刻は含まれていない
+    current_date = Time.now.strftime('%Y-%m-%d')
+    assert !markdown.include?("**Date**: #{current_date}") || current_date == '2025-10-01',
+           'Should not include current date unless it matches session date'
+  end
+
+  def test_build_markdown_handles_missing_timestamp
+    processor = ClaudeHistoryToObsidian.new
+
+    # タイムスタンプなしのメッセージ
+    messages = [
+      {'role' => 'user', 'content' => 'Test'},
+      {'role' => 'assistant', 'content' => 'Response'}
+    ]
+
+    markdown = processor.send(:build_markdown,
+      project_name: 'test-project',
+      cwd: '/test/path',
+      session_id: 'test123',
+      messages: messages
+    )
+
+    # タイムスタンプ取得失敗時は 'Unknown'
+    assert_include markdown, '**Date**: Unknown'
   end
 
   # === カバレッジ90%+達成のためのテスト ===

@@ -130,6 +130,10 @@ class ClaudeHistoryImporter
     log_dir = File.dirname(LOG_FILE_PATH)
     FileUtils.mkdir_p(log_dir) unless Dir.exist?(log_dir)
 
+    # NOTE: ClaudeHistoryToObsidian とのタイムゾーン表示形式の差異について
+    # ClaudeHistoryToObsidian では %z（タイムゾーン）を含むが、
+    # ClaudeHistoryImporter はログファイル出力専用（JSON 解析対象外）のため、
+    # 統一せず現状を維持。ログの人間向け可読性は十分で、機能影響なし。
     timestamp = Time.now.strftime('%Y-%m-%d %H:%M:%S')
     File.open(LOG_FILE_PATH, 'a') do |f|
       f.puts "[#{timestamp}] #{message}"

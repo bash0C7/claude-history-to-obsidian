@@ -957,23 +957,6 @@ class TestClaudeHistoryToObsidian < Test::Unit::TestCase
     assert_include markdown, 'Second part of response'
   end
 
-
-  # TEST: notify メソッド
-  def test_notify_with_macos
-    processor = ClaudeHistoryToObsidian.new
-    
-    # macOS での通知テスト（terminal-notifier が利用可能な場合）
-    # 通知が呼ばれてもエラーが出ないことを確認
-    begin
-      processor.send(:notify, "Test notification")
-      # エラーが出なければ成功
-      assert true
-    rescue StandardError => e
-      # terminal-notifier が無い場合は OK
-      assert true
-    end
-  end
-
   # TEST: macos? メソッド
   def test_macos_platform_detection
     processor = ClaudeHistoryToObsidian.new

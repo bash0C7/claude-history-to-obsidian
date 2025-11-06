@@ -20,7 +20,9 @@
       "Bash(bundle exec rake test:*)",
       "Bash(echo:*)",
       "Bash(find:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(bundle config:*)",
+      "Bash(bundle install:*)"
     ],
     "deny": [
       "Bash(git remote remove:*)",

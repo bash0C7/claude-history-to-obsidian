@@ -128,6 +128,394 @@
 
 ---
 
+## 🚨 優先度高: タイムゾーン処理の修正
+
+### 問題点
+
+**現状の不具合**:
+1. **`build_markdown` (165行目)**: `Time.now`を使用 → 取り込み時刻になっている（セッション開始時刻であるべき）
+2. **`extract_session_timestamp` (300行目)**: `Time.parse`がタイムゾーン情報を考慮していない → UTCとローカルタイムが混在
+
+**影響範囲**:
+- Claude Code: Hook経由でのトランスクリプト保存
+- Claude Web: エクスポートファイルからのBulk Import
+- ファイル名のタイムスタンプ（YYYYMMDD-HHMMSS）
+- Markdownヘッダーの**Date**フィールド
+
+### 統一方針: 全てローカルタイムゾーンで統一
+
+**理由**:
+- Obsidianファイルは人間が読むもの → ローカルタイムが自然
+- Claude Code/Web両方で一貫性を保つ
+- ユーザーの作業時刻として認識しやすい
+
+**処理フロー**:
+```
+入力データ → パース → localtime変換 → フォーマット → 出力
+   ↓           ↓           ↓              ↓         ↓
+ISO 8601   Time obj    localtime     YYYYMMDD    Markdown
+(UTC)     (with TZ)    変換済み      -HHMMSS     ファイル
+```
+
+### 実装タスク
+
+#### タスク1: ローカル調査（事前準備）
+
+**目的**: Claude Code/Webの実際のタイムスタンプフォーマットを確認
+
+**調査項目**:
+1. **Claude Codeセッションファイル**:
+   ```bash
+   # セッションファイルのサンプル確認
+   ls -la ~/.claude/sessions/
+   cat ~/.claude/sessions/session-YYYYMMDD-HHMMSS.json | head -50
+
+   # timestampフィールドのフォーマット確認
+   cat ~/.claude/sessions/session-*.json | jq '.messages[0].timestamp' | head -5
+   ```
+
+   **確認ポイント**:
+   - ISO 8601形式か？ (`2025-11-03T14:30:22.000Z`)
+   - タイムゾーン情報は含まれているか？ (`Z`サフィックスまたは`+09:00`など)
+   - ローカルタイムか、UTCか？
+
+2. **Claude Webエクスポートファイル**:
+   ```bash
+   # conversations.jsonのサンプル確認
+   cat ~/Downloads/conversations.json | jq '.[] | .messages[0].timestamp' | head -5
+   ```
+
+   **確認ポイント**:
+   - Claude Codeと同じフォーマットか？
+   - タイムゾーン情報の有無
+   - 既にローカルタイムに変換済みか、UTCか？
+
+3. **既存の取り込み済みファイルの確認**:
+   ```bash
+   # Obsidian vaultのファイル名を確認
+   ls -la ~/Library/Mobile\ Documents/iCloud~md~obsidian/Documents/ObsidianVault/Claude\ Code/*/
+
+   # ファイル名のタイムスタンプと、ファイル内のDateフィールドを比較
+   head -10 ~/Library/.../Claude\ Code/project/20251103-*.md
+   ```
+
+   **確認ポイント**:
+   - ファイル名のタイムスタンプは正しいか？
+   - **Date**フィールドの時刻は正しいか？
+   - ズレがある場合、何時間ずれているか？ (UTCとJSTなら9時間)
+
+**調査結果の記録場所**: このセクションに追記、または`.claude/references/timestamp-investigation.md`に記録
+
+#### タスク2: `extract_session_timestamp`の修正
+
+**ファイル**: `lib/claude_history_to_obsidian.rb:288-304`
+
+**修正内容**:
+```ruby
+def extract_session_timestamp(transcript)
+  # Bulk Import時: _first_message_timestamp フィールドをチェック
+  return transcript['_first_message_timestamp'] if transcript['_first_message_timestamp']
+
+  # Hook時: messages から最初のメッセージのタイムスタンプを抽出
+  messages = transcript['messages']
+  return nil unless messages && messages.length > 0
+
+  first_msg = messages.first
+  return nil unless first_msg['timestamp']
+
+  # ISO 8601形式のタイムスタンプをYYYYMMDD-HHMMSSに変換
+  # 修正: .localtime を追加してローカルタイムゾーンに変換
+  Time.parse(first_msg['timestamp']).localtime.strftime('%Y%m%d-%H%M%S')
+rescue StandardError => e
+  log("WARNING: Failed to extract session timestamp: #{e.message}")
+  nil
+end
+```
+
+**変更点**:
+- `.localtime` を追加（300行目）
+- UTCのタイムスタンプをローカルタイムゾーンに変換
+
+**テスト追加**:
+```ruby
+# test/test_claude_history_to_obsidian.rb に追加
+
+def test_extract_session_timestamp_converts_utc_to_local
+  processor = ClaudeHistoryToObsidian.new
+
+  # UTCタイムスタンプ (2025-11-03 14:30:22 UTC)
+  transcript = {
+    'messages' => [
+      {'role' => 'user', 'content' => 'Test', 'timestamp' => '2025-11-03T14:30:22.000Z'}
+    ]
+  }
+
+  timestamp = processor.send(:extract_session_timestamp, transcript)
+
+  # JST (UTC+9) の場合: 2025-11-03 23:30:22
+  # 環境によって異なるため、Time.parseの結果と比較
+  expected = Time.parse('2025-11-03T14:30:22.000Z').localtime.strftime('%Y%m%d-%H%M%S')
+  assert_equal expected, timestamp
+end
+```
+
+#### タスク3: 新規メソッド `extract_session_time` 追加
+
+**ファイル**: `lib/claude_history_to_obsidian.rb` (private セクションに追加)
+
+**実装内容**:
+```ruby
+# メッセージ配列から最初のメッセージのTimeオブジェクトを取得
+# build_markdownで使用（Dateフィールド生成用）
+def extract_session_time(messages)
+  return nil unless messages && messages.length > 0
+
+  first_msg = messages.first
+  return nil unless first_msg['timestamp']
+
+  Time.parse(first_msg['timestamp'])  # Timeオブジェクトを返す
+rescue StandardError => e
+  log("WARNING: Failed to parse session time: #{e.message}")
+  nil
+end
+```
+
+**目的**:
+- `build_markdown`でセッション開始時刻を取得するため
+- Timeオブジェクトを返す（フォーマット前）
+- 呼び出し側で`.localtime`してフォーマット
+
+**テスト追加**:
+```ruby
+def test_extract_session_time_returns_time_object
+  processor = ClaudeHistoryToObsidian.new
+
+  messages = [
+    {'role' => 'user', 'content' => 'Test', 'timestamp' => '2025-11-03T14:30:22.000Z'}
+  ]
+
+  time_obj = processor.send(:extract_session_time, messages)
+
+  assert_instance_of Time, time_obj
+  assert_equal Time.parse('2025-11-03T14:30:22.000Z'), time_obj
+end
+
+def test_extract_session_time_returns_nil_for_invalid_timestamp
+  processor = ClaudeHistoryToObsidian.new
+
+  messages = [
+    {'role' => 'user', 'content' => 'Test', 'timestamp' => 'invalid-format'}
+  ]
+
+  time_obj = processor.send(:extract_session_time, messages)
+  assert_nil time_obj
+end
+```
+
+#### タスク4: `build_markdown` の修正
+
+**ファイル**: `lib/claude_history_to_obsidian.rb:164-212`
+
+**修正内容**:
+```ruby
+def build_markdown(project_name:, cwd:, session_id:, messages:, source: 'code')
+  # 修正: セッション開始時刻を使用（Time.now は使わない）
+  session_time = extract_session_time(messages)
+  timestamp = session_time ?
+    session_time.localtime.strftime('%Y-%m-%d %H:%M:%S') :
+    'Unknown'  # タイムスタンプ取得失敗時
+
+  session_type = source == 'web' ? 'Claude Web Session' : 'Claude Code Session'
+
+  output = []
+  output << "# #{session_type}"
+  output << ""
+  output << "**Project**: #{project_name}"
+  output << "**Path**: #{cwd}"
+  output << "**Session ID**: #{session_id}"
+  output << "**Date**: #{timestamp}"
+  # ... 以下同じ
+end
+```
+
+**変更点**:
+- `Time.now` を削除 (165行目)
+- `extract_session_time(messages)` を呼び出し
+- `.localtime.strftime()` でローカルタイムゾーンに変換
+- タイムスタンプ取得失敗時は `'Unknown'`
+
+**テスト追加**:
+```ruby
+def test_build_markdown_uses_session_timestamp_not_current_time
+  processor = ClaudeHistoryToObsidian.new
+
+  # 過去のタイムスタンプ
+  messages = [
+    {'role' => 'user', 'content' => 'Test', 'timestamp' => '2025-10-01T10:00:00.000Z'},
+    {'role' => 'assistant', 'content' => 'Response', 'timestamp' => '2025-10-01T10:00:05.000Z'}
+  ]
+
+  markdown = processor.send(:build_markdown,
+    project_name: 'test-project',
+    cwd: '/test/path',
+    session_id: 'test123',
+    messages: messages
+  )
+
+  # セッション開始時刻が使用されている（現在時刻ではない）
+  expected_date = Time.parse('2025-10-01T10:00:00.000Z').localtime.strftime('%Y-%m-%d %H:%M:%S')
+  assert_include markdown, "**Date**: #{expected_date}"
+
+  # 現在時刻は含まれていない
+  current_date = Time.now.strftime('%Y-%m-%d')
+  assert_not_include markdown, "**Date**: #{current_date}" unless current_date == '2025-10-01'
+end
+
+def test_build_markdown_handles_missing_timestamp
+  processor = ClaudeHistoryToObsidian.new
+
+  # タイムスタンプなしのメッセージ
+  messages = [
+    {'role' => 'user', 'content' => 'Test'},
+    {'role' => 'assistant', 'content' => 'Response'}
+  ]
+
+  markdown = processor.send(:build_markdown,
+    project_name: 'test-project',
+    cwd: '/test/path',
+    session_id: 'test123',
+    messages: messages
+  )
+
+  # タイムスタンプ取得失敗時は 'Unknown'
+  assert_include markdown, '**Date**: Unknown'
+end
+```
+
+#### タスク5: エンドツーエンドテスト
+
+**目的**: Hook mode と Bulk Import mode の両方で、タイムゾーン処理が正しく動作することを確認
+
+**テスト追加**:
+```ruby
+def test_timezone_handling_hook_mode_with_utc_timestamp
+  processor = ClaudeHistoryToObsidian.new
+
+  Dir.mktmpdir do |test_dir|
+    # UTCタイムスタンプのトランスクリプトファイルを作成
+    transcript_path = File.join(test_dir, 'transcript.json')
+    transcript_data = {
+      'session_id' => 'tz-test-001',
+      'cwd' => '~/src/test-tz',
+      'messages' => [
+        {'role' => 'user', 'content' => 'Testing timezone', 'timestamp' => '2025-11-03T05:00:00.000Z'},
+        {'role' => 'assistant', 'content' => 'Response', 'timestamp' => '2025-11-03T05:00:05.000Z'}
+      ]
+    }
+    File.write(transcript_path, JSON.generate(transcript_data))
+
+    # Hook JSON
+    hook_input = {
+      'session_id' => 'tz-test-001',
+      'transcript_path' => transcript_path,
+      'cwd' => '~/src/test-tz',
+      'permission_mode' => 'default',
+      'hook_event_name' => 'Stop'
+    }
+
+    # 実行
+    with_stdin(JSON.generate(hook_input)) do
+      begin
+        processor.run
+      rescue SystemExit => e
+        assert_equal 0, e.status
+      end
+    end
+
+    # ファイル確認
+    vault_base = ClaudeHistoryToObsidian::CLAUDE_CODE_VAULT_PATH
+    project_dir = File.join(vault_base, 'test-tz')
+    files = Dir.glob(File.join(project_dir, '*.md'))
+
+    assert files.length > 0, 'File should be created'
+
+    # ファイル名のタイムスタンプがローカルタイムに変換されている
+    filename = File.basename(files[0])
+    expected_local_time = Time.parse('2025-11-03T05:00:00.000Z').localtime.strftime('%Y%m%d-%H%M%S')
+    assert filename.start_with?(expected_local_time), "Filename should start with local time: #{filename}"
+
+    # ファイル内のDateフィールドも確認
+    content = File.read(files[0])
+    expected_date_str = Time.parse('2025-11-03T05:00:00.000Z').localtime.strftime('%Y-%m-%d %H:%M:%S')
+    assert_include content, "**Date**: #{expected_date_str}"
+
+    # クリーンアップ
+    FileUtils.rm_rf(project_dir) if Dir.exist?(project_dir)
+  end
+end
+```
+
+#### タスク6: ドキュメント更新
+
+**ファイル**: `.claude/specifications.md`
+
+**更新箇所**: 「Transcript JSON Input Format」セクション
+
+**追記内容**:
+```markdown
+### タイムスタンプとタイムゾーン処理
+
+**入力フォーマット**:
+- ISO 8601形式を想定: `2025-11-03T14:30:22.000Z`
+- `Z`サフィックス: UTC時刻
+- `+09:00`などのオフセット: タイムゾーン付き
+
+**処理方針**:
+- 全てのタイムスタンプを**ローカルタイムゾーン**に変換
+- ファイル名: `YYYYMMDD-HHMMSS` (ローカルタイム)
+- Markdown **Date**フィールド: `YYYY-MM-DD HH:MM:SS` (ローカルタイム)
+
+**実装**:
+```ruby
+Time.parse(timestamp_string).localtime.strftime('%Y%m%d-%H%M%S')
+```
+
+**理由**:
+- ユーザーの作業時刻として認識しやすい
+- Claude Code/Web両方で一貫性を保つ
+- Obsidianで閲覧時に直感的
+```
+
+#### タスク7: テスト実行とカバレッジ確認
+
+```bash
+# 全テスト実行
+bundle exec ruby -I lib:test -rtest/unit test/**/*.rb
+
+# カバレッジ確認
+# テスト実行後、coverage/ ディレクトリを確認
+open coverage/index.html  # macOS
+```
+
+**確認項目**:
+- [ ] 全テストがパス (GREEN)
+- [ ] 新規追加したタイムゾーン関連テストがパス
+- [ ] カバレッジが維持または向上
+- [ ] extract_session_timestamp, extract_session_time, build_markdownのカバレッジが100%
+
+### 完了条件
+
+- [ ] タスク1: ローカル調査完了、結果をドキュメント化
+- [ ] タスク2: `extract_session_timestamp` 修正、テスト追加
+- [ ] タスク3: `extract_session_time` 実装、テスト追加
+- [ ] タスク4: `build_markdown` 修正、テスト追加
+- [ ] タスク5: エンドツーエンドテスト追加
+- [ ] タスク6: ドキュメント更新
+- [ ] タスク7: 全テストパス、カバレッジ確認
+- [ ] Git commit & push
+
+---
+
 ## 📝 その他のTODO
 
 （将来的な改善項目をここに追加）

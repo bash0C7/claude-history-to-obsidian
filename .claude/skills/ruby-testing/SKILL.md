@@ -210,6 +210,64 @@ cd ~/src/claude-history-to-obsidian
 DEBUG=1 cat /tmp/hook-input.json | bundle exec ruby bin/claude-history-to-obsidian
 ```
 
+## Test Mode (CLAUDE_VAULT_MODE=test)
+
+When developing or testing, use test mode to isolate output files with `[test]` suffix:
+
+```bash
+# Test mode: Files saved to Claude Code [test]/{project}/
+export CLAUDE_VAULT_PATH=/tmp/test-vault
+export CLAUDE_VAULT_MODE=test
+cd ~/src/claude-history-to-obsidian
+
+cat > /tmp/test-mode-transcript.json <<'EOF'
+{
+  "session_id": "testmode123",
+  "cwd": "~/src/test-project",
+  "messages": [
+    {"role": "user", "content": "Testing in test mode"},
+    {"role": "assistant", "content": "This will be saved to a test vault location"}
+  ]
+}
+EOF
+
+cat > /tmp/test-mode-hook.json <<'EOF'
+{
+  "session_id": "testmode123",
+  "transcript_path": "/tmp/test-mode-transcript.json",
+  "cwd": "~/src/test-project",
+  "permission_mode": "default",
+  "hook_event_name": "Stop"
+}
+EOF
+
+# Run with test isolation
+cat /tmp/test-mode-hook.json | bundle exec ruby bin/claude-history-to-obsidian
+
+# Verify files are in test vault
+ls -la /tmp/test-vault/Claude\ Code\ \[test\]/test-project/
+```
+
+### Multiple Test Vaults
+
+Use different vault paths for different test scenarios:
+
+```bash
+# Test vault 1: Feature A testing
+export CLAUDE_VAULT_PATH=/tmp/test-vault-feature-a
+export CLAUDE_VAULT_MODE=test
+cat /tmp/hook-input.json | bundle exec ruby bin/claude-history-to-obsidian
+
+# Test vault 2: Feature B testing
+export CLAUDE_VAULT_PATH=/tmp/test-vault-feature-b
+export CLAUDE_VAULT_MODE=test
+cat /tmp/different-hook.json | bundle exec ruby bin/claude-history-to-obsidian
+
+# Compare results without affecting production vault
+ls -la /tmp/test-vault-feature-a/Claude\ Code\ \[test\]/*/
+ls -la /tmp/test-vault-feature-b/Claude\ Code\ \[test\]/*/
+```
+
 ## Integration Test
 
 Full end-to-end test simulating the hook scenario:

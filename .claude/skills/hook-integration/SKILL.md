@@ -258,6 +258,177 @@ else
 fi
 ```
 
+## Hook Integration Testing with Test Mode (CLAUDE_VAULT_MODE=test)
+
+Isolate hook testing from production vault using test mode:
+
+```bash
+#!/bin/bash
+# Hook統合テストをテストモードで実行（本番Vaultへの影響なし）
+
+set -e
+
+PROJ_DIR="~/src/claude-history-to-obsidian"
+TEST_ID="hook-test-mode-$(date +%s)"
+
+echo "🧪 Hook Integration Test (Test Mode)"
+echo "===================================="
+echo "Test ID: $TEST_ID"
+echo ""
+
+# テストモードでのHook設定
+export CLAUDE_VAULT_PATH=/tmp/test-vault
+export CLAUDE_VAULT_MODE=test
+
+# Step 1: テストデータ作成
+echo "Step 1️⃣: Creating test hook and transcript..."
+cat > /tmp/test-mode-hook-$TEST_ID.json <<EOF
+{
+  "session_id": "$TEST_ID",
+  "transcript_path": "/tmp/test-transcript-$TEST_ID.json",
+  "cwd": "~/src/test-project",
+  "permission_mode": "default",
+  "hook_event_name": "Stop"
+}
+EOF
+
+cat > /tmp/test-transcript-$TEST_ID.json <<'EOF2'
+{
+  "session_id": "test-session-123",
+  "cwd": "~/src/test-project",
+  "messages": [
+    {"role": "user", "content": "Testing hook in test mode"},
+    {"role": "assistant", "content": "This runs safely in test vault"},
+    {"role": "user", "content": "Verify the output"},
+    {"role": "assistant", "content": "Files are in [test] vault"}
+  ]
+}
+EOF2
+
+echo "✅ Test files created"
+
+# Step 2: Hook実行（テストモード）
+echo ""
+echo "Step 2️⃣: Executing hook in test mode..."
+cd "$PROJ_DIR"
+cat /tmp/test-mode-hook-$TEST_ID.json | bundle exec ruby bin/claude-history-to-obsidian
+EXIT_CODE=$?
+
+echo ""
+echo "Exit code: $EXIT_CODE (expected: 0)"
+
+# Step 3: テストVault確認
+echo ""
+echo "Step 3️⃣: Verifying test vault output..."
+TEST_VAULT="/tmp/test-vault/Claude Code [test]/test-project"
+
+if [ -d "$TEST_VAULT" ]; then
+  echo "✅ Test vault directory created: $TEST_VAULT"
+  echo "Files:"
+  ls -lh "$TEST_VAULT/"
+
+  # ファイル内容確認
+  LATEST=$(ls -t "$TEST_VAULT"/*.md 2>/dev/null | head -1)
+  if [ -n "$LATEST" ]; then
+    echo ""
+    echo "✅ Generated file: $(basename "$LATEST")"
+    echo "---"
+    head -30 "$LATEST"
+  fi
+else
+  echo "❌ Test vault not found"
+fi
+
+echo ""
+echo "===================================="
+echo "✅ Test mode hook test complete!"
+echo "===================================="
+
+# Cleanup
+rm -f /tmp/test-mode-hook-$TEST_ID.json
+rm -f /tmp/test-transcript-$TEST_ID.json
+```
+
+### Multiple Concurrent Hook Tests
+
+Run multiple hook tests in parallel with different test vaults:
+
+```bash
+#!/bin/bash
+# 複数のHookテストを並行実行（テストモード使用）
+
+PROJ_DIR="~/src/claude-history-to-obsidian"
+
+# Test 1: Web format
+export CLAUDE_VAULT_PATH=/tmp/test-vault-web
+export CLAUDE_VAULT_MODE=test
+
+cat > /tmp/web-hook.json <<'EOF'
+{
+  "session_id": "web-test-123",
+  "transcript_path": "/tmp/web-transcript.json",
+  "cwd": "~/src/web-project",
+  "source": "web",
+  "permission_mode": "default",
+  "hook_event_name": "Stop"
+}
+EOF
+
+cat > /tmp/web-transcript.json <<'EOF2'
+{
+  "session_id": "web-test-123",
+  "cwd": "~/src/web-project",
+  "messages": [
+    {"role": "user", "content": "Testing Web format"},
+    {"role": "assistant", "content": "Web format uses different filename structure"}
+  ]
+}
+EOF2
+
+echo "Running Web format hook test..."
+cat /tmp/web-hook.json | bundle exec ruby bin/claude-history-to-obsidian
+
+# Test 2: Code format
+export CLAUDE_VAULT_PATH=/tmp/test-vault-code
+export CLAUDE_VAULT_MODE=test
+
+cat > /tmp/code-hook.json <<'EOF'
+{
+  "session_id": "code-test-456",
+  "transcript_path": "/tmp/code-transcript.json",
+  "cwd": "~/src/code-project",
+  "source": "code",
+  "permission_mode": "default",
+  "hook_event_name": "Stop"
+}
+EOF
+
+cat > /tmp/code-transcript.json <<'EOF2'
+{
+  "session_id": "code-test-456",
+  "cwd": "~/src/code-project",
+  "messages": [
+    {"role": "user", "content": "Testing Code format"},
+    {"role": "assistant", "content": "Code format includes session ID in filename"}
+  ]
+}
+EOF2
+
+echo "Running Code format hook test..."
+cat /tmp/code-hook.json | bundle exec ruby bin/claude-history-to-obsidian
+
+# Compare results
+echo ""
+echo "Comparing test vault outputs:"
+echo ""
+echo "Web format files:"
+ls -lh /tmp/test-vault-web/claude.ai\ \[test\]/**/*.md 2>/dev/null || echo "No files"
+
+echo ""
+echo "Code format files:"
+ls -lh /tmp/test-vault-code/Claude\ Code\ \[test\]/**/*.md 2>/dev/null || echo "No files"
+```
+
 ## Hook Error Handling Test
 
 Test how the hook handles errors gracefully:

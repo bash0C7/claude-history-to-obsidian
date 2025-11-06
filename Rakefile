@@ -34,6 +34,7 @@ namespace :code do
 
     count = 0
     errors = 0
+    failed_sessions = []
 
     # Ctrl+C で終了
     Signal.trap('INT') do
@@ -63,8 +64,17 @@ namespace :code do
             count += 1
           rescue StandardError => e
             errors += 1
-            warn "Error processing session #{session_id}: #{e.message}"
+            failed_sessions << { session_id: session_id, project: project_name, error: e.message }
+            warn "❌ Error processing session #{session_id} in #{project_name}: #{e.message[0..100]}"
           end
+        end
+      end
+
+      # エラーサマリーを表示
+      if errors > 0
+        puts "\n⚠️  Failed sessions:"
+        failed_sessions.each do |failure|
+          puts "  - #{failure[:session_id]} (#{failure[:project]}): #{failure[:error][0..80]}"
         end
       end
 

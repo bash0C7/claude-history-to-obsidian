@@ -185,7 +185,8 @@ class TestClaudeHistoryToObsidian < Test::Unit::TestCase
     }
 
     timestamp = processor.send(:extract_session_timestamp, transcript)
-    assert_equal '20251103-143022', timestamp
+    # UTC統一: Z サフィックス付き
+    assert_equal '20251103-143022Z', timestamp
   end
 
   def test_extract_session_timestamp_returns_nil_when_missing
@@ -204,6 +205,54 @@ class TestClaudeHistoryToObsidian < Test::Unit::TestCase
     }
     timestamp = processor.send(:extract_session_timestamp, transcript_no_timestamp)
     assert_nil timestamp
+  end
+
+  def test_extract_session_timestamp_keeps_utc_with_z_suffix
+    processor = ClaudeHistoryToObsidian.new
+
+    # UTCタイムスタンプ (2025-11-03 14:30:22 UTC)
+    transcript = {
+      'messages' => [
+        {'role' => 'user', 'content' => 'Test', 'timestamp' => '2025-11-03T14:30:22.000Z'}
+      ]
+    }
+
+    timestamp = processor.send(:extract_session_timestamp, transcript)
+
+    # UTC統一: ローカルタイム変換せず、Zサフィックス付き
+    assert_equal '20251103-143022Z', timestamp, 'Should keep UTC time with Z suffix'
+  end
+
+  def test_extract_session_time_returns_time_object
+    processor = ClaudeHistoryToObsidian.new
+
+    messages = [
+      {'role' => 'user', 'content' => 'Test', 'timestamp' => '2025-11-03T14:30:22.000Z'}
+    ]
+
+    time_obj = processor.send(:extract_session_time, messages)
+
+    assert_instance_of Time, time_obj
+    assert_equal Time.parse('2025-11-03T14:30:22.000Z'), time_obj
+  end
+
+  def test_extract_session_time_returns_nil_for_invalid_timestamp
+    processor = ClaudeHistoryToObsidian.new
+
+    messages = [
+      {'role' => 'user', 'content' => 'Test', 'timestamp' => 'invalid-format'}
+    ]
+
+    time_obj = processor.send(:extract_session_time, messages)
+    assert_nil time_obj
+  end
+
+  def test_extract_session_time_returns_nil_for_empty_messages
+    processor = ClaudeHistoryToObsidian.new
+
+    messages = []
+    time_obj = processor.send(:extract_session_time, messages)
+    assert_nil time_obj
   end
 
   def test_generate_filename_format
@@ -580,6 +629,65 @@ class TestClaudeHistoryToObsidian < Test::Unit::TestCase
     ensure
       # クリーンアップ
       FileUtils.rm_rf(project_dir)
+    end
+  end
+
+  def test_hook_mode_timezone_handling_end_to_end
+    processor = ClaudeHistoryToObsidian.new
+
+    Dir.mktmpdir do |test_dir|
+      # UTCタイムスタンプのトランスクリプトファイルを作成
+      transcript_path = File.join(test_dir, 'transcript.json')
+      transcript_data = {
+        'session_id' => 'tz-test-001',
+        'cwd' => '~/src/test-tz',
+        'messages' => [
+          {'role' => 'user', 'content' => 'Testing timezone', 'timestamp' => '2025-11-03T05:00:00.000Z'},
+          {'role' => 'assistant', 'content' => 'Response', 'timestamp' => '2025-11-03T05:00:05.000Z'}
+        ]
+      }
+      File.write(transcript_path, JSON.generate(transcript_data))
+
+      # Hook JSON
+      hook_input = {
+        'session_id' => 'tz-test-001',
+        'transcript_path' => transcript_path,
+        'cwd' => '~/src/test-tz',
+        'permission_mode' => 'default',
+        'hook_event_name' => 'Stop'
+      }
+
+      vault_base = ClaudeHistoryToObsidian::CLAUDE_CODE_VAULT_PATH
+      project_dir = File.join(vault_base, 'test-tz')
+
+      begin
+        # 実行
+        with_stdin(JSON.generate(hook_input)) do
+          begin
+            processor.run
+          rescue SystemExit => e
+            assert_equal 0, e.status
+          end
+        end
+
+        # ファイル確認
+        files = Dir.glob(File.join(project_dir, '*.md'))
+        assert files.length > 0, 'File should be created'
+
+        filename = File.basename(files[0])
+
+        # UTC統一: ファイル名のタイムスタンプはUTCのまま、Zサフィックス付き
+        expected_utc_time = '20251103-050000Z'
+        assert filename.start_with?(expected_utc_time), "Filename should start with UTC time: #{filename}"
+
+        # ファイル内のDateフィールドもUTC統一
+        content = File.read(files[0])
+        expected_date_str = '2025-11-03 05:00:00 +0000'
+        assert_include content, "**Date**: #{expected_date_str}"
+      ensure
+        # クリーンアップ
+        FileUtils.rm_rf(project_dir) if Dir.exist?(project_dir)
+      end
     end
   end
 
@@ -1188,6 +1296,75 @@ class TestClaudeHistoryToObsidian < Test::Unit::TestCase
     assert markdown.include?('# Claude Web Session'), 'Markdown should have Web session header'
     assert markdown.include?('**Project**: test-project'), 'Markdown should include project name'
     assert markdown.include?('**Session ID**: test123456789'), 'Markdown should include session ID'
+  end
+
+  def test_build_markdown_uses_session_timestamp_not_current_time
+    processor = ClaudeHistoryToObsidian.new
+
+    # 過去のタイムスタンプ
+    messages = [
+      {'role' => 'user', 'content' => 'Test', 'timestamp' => '2025-10-01T10:00:00.000Z'},
+      {'role' => 'assistant', 'content' => 'Response', 'timestamp' => '2025-10-01T10:00:05.000Z'}
+    ]
+
+    markdown = processor.send(:build_markdown,
+      project_name: 'test-project',
+      cwd: '/test/path',
+      session_id: 'test123',
+      messages: messages
+    )
+
+    # UTC統一: セッション開始時刻がUTCで使用されている
+    expected_date = '2025-10-01 10:00:00 +0000'
+    assert_include markdown, "**Date**: #{expected_date}"
+
+    # 現在時刻は含まれていない
+    current_date = Time.now.utc.strftime('%Y-%m-%d')
+    assert !markdown.include?("**Date**: #{current_date}") || current_date == '2025-10-01',
+           'Should not include current date unless it matches session date'
+  end
+
+  def test_build_markdown_handles_missing_timestamp
+    processor = ClaudeHistoryToObsidian.new
+
+    # タイムスタンプなしのメッセージ
+    messages = [
+      {'role' => 'user', 'content' => 'Test'},
+      {'role' => 'assistant', 'content' => 'Response'}
+    ]
+
+    markdown = processor.send(:build_markdown,
+      project_name: 'test-project',
+      cwd: '/test/path',
+      session_id: 'test123',
+      messages: messages
+    )
+
+    # タイムスタンプ取得失敗時は 'Unknown'
+    assert_include markdown, '**Date**: Unknown'
+  end
+
+  def test_build_markdown_includes_explicit_timezone_offset
+    processor = ClaudeHistoryToObsidian.new
+
+    # タイムスタンプ付きメッセージ
+    messages = [
+      {'role' => 'user', 'content' => 'Test', 'timestamp' => '2025-11-03T14:30:22.000Z'},
+      {'role' => 'assistant', 'content' => 'Response', 'timestamp' => '2025-11-03T14:30:25.000Z'}
+    ]
+
+    markdown = processor.send(:build_markdown,
+      project_name: 'test-project',
+      cwd: '/test/path',
+      session_id: 'test123',
+      messages: messages
+    )
+
+    # UTC統一: タイムゾーンオフセット +0000 が明示的に含まれている
+    expected_timestamp_with_tz = '2025-11-03 14:30:22 +0000'
+
+    assert_include markdown, "**Date**: #{expected_timestamp_with_tz}",
+                   'Markdown should include UTC timezone (+0000)'
   end
 
   # === カバレッジ90%+達成のためのテスト ===

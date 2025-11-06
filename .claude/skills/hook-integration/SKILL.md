@@ -7,6 +7,22 @@ description: "🪝 Create Hook test data, simulate Claude Code Stop event, verif
 
 Test and verify Claude Code Hook integration for the claude-history-to-obsidian application.
 
+## Skill Role & Use Cases
+
+**Use this skill for**:
+- End-to-end hook integration testing
+- Simulating Claude Code Stop event
+- Verifying full hook workflow
+- Testing Obsidian vault output
+- Validating transcript processing through Hook JSON
+- Testing multiple format scenarios (Web vs Code)
+- Error handling in hook scenarios
+
+**Do NOT use for**:
+- Unit testing individual Ruby methods (use ruby-testing skill instead)
+- Quick script validation with minimal setup
+- Testing code logic without hook simulation
+
 ## Hook Configuration Setup
 
 Configure the Hook in Claude Code settings:

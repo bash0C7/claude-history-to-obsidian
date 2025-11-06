@@ -7,6 +7,20 @@ description: "🧪 Test the Ruby script with sample Hook JSON, verify markdown o
 
 Comprehensive testing for the claude-history-to-obsidian Ruby CLI application. Creates test data, executes the script, and validates output.
 
+## Skill Role & Use Cases
+
+**Use this skill for**:
+- Unit testing Ruby code with test data
+- Verifying script output locally with sample JSON
+- Testing edge cases and error handling
+- Validating markdown formatting
+- Quick feedback during development
+
+**Do NOT use for**:
+- End-to-end hook integration testing (use hook-integration skill instead)
+- Full hook workflow simulation
+- Obsidian vault output verification
+
 ## Quick Test
 
 Create test data and run the application:

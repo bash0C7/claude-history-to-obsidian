@@ -224,6 +224,7 @@ class ClaudeHistoryToObsidian
   end
 
   # Content配列（conversations.json形式）をMarkdownブロック形式に変換
+  # 未知のブロックタイプについては警告ログを出しながらもスルーする（フューチャープルーフ）
   def format_content_blocks(blocks)
     output = []
 
@@ -240,8 +241,13 @@ class ClaudeHistoryToObsidian
       block_type = block['type']
       block_config = block_map[block_type]
 
-      # signature や未定義型はスキップ
-      next if block_config.nil?
+      # 未知のブロックタイプの場合は警告ログ、signature はスキップ
+      if block_config.nil?
+        if block_type && block_type != 'signature'
+          log("WARNING: Unknown block type: #{block_type}")
+        end
+        next
+      end
 
       emoji, label, content_key = block_config
       content_text = block[content_key] || ''

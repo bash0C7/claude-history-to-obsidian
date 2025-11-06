@@ -56,7 +56,8 @@ class TestClaudeHistoryImporter < Test::Unit::TestCase
     importer = ClaudeHistoryImporter.new
     timestamp = importer.send(:extract_first_message_timestamp, messages)
 
-    assert_equal '20251103-103045', timestamp, 'Should extract and format timestamp correctly'
+    # ローカルタイム (JST): UTC 10:30:45 → JST 19:30:45
+    assert_equal '20251103-193045', timestamp, 'Should extract and format timestamp correctly'
   end
 
   def test_extract_first_message_timestamp_empty_messages
@@ -129,7 +130,8 @@ class TestClaudeHistoryImporter < Test::Unit::TestCase
     assert_not_nil hook_json['transcript'], 'transcript should be embedded'
     assert_equal 'test-session-123', hook_json['transcript']['session_id']
     assert_equal 2, hook_json['transcript']['messages'].length
-    assert_equal '20251103-100000', hook_json['transcript']['_first_message_timestamp']
+    # ローカルタイム (JST): UTC 10:00:00 → JST 19:00:00
+    assert_equal '20251103-190000', hook_json['transcript']['_first_message_timestamp']
   end
 
   def test_run_with_multiple_jsonl_paths

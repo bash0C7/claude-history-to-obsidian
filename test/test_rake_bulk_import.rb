@@ -78,8 +78,9 @@ class TestRakeBulkImport < Test::Unit::TestCase
     assert_include(output, '📂 arduino-project', 'Should show arduino-project')
 
     # 出力がセッション日付を含むことを検証
-    assert_include(output, '20251102-143022', 'Should show session timestamp for first session')
-    assert_include(output, '20251103-100000', 'Should show session timestamp for second project')
+    # ローカルタイム (JST): UTC 14:30:22 → JST 23:30:22, UTC 10:00:00 → JST 19:00:00
+    assert_include(output, '20251102-233022', 'Should show session timestamp for first session')
+    assert_include(output, '20251103-190000', 'Should show session timestamp for second project')
 
     # 出力がセッションIDを含むことを検証
     assert_include(output, 'abc12345', 'Should show first 8 chars of session ID')

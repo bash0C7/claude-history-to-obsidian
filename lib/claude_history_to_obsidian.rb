@@ -77,6 +77,7 @@ class ClaudeHistoryToObsidian
     # Web の場合、ディレクトリ名は yyyymm になるので、それを反映させる
     actual_dir_name = if source == 'web' && transcript
       timestamp = extract_session_timestamp(transcript)
+      # timestamp はローカルタイム (e.g. "20251103-233022") なので [0..5] で "202511" を取得
       timestamp ? timestamp[0..5] : project_name
     else
       project_name
@@ -163,11 +164,16 @@ class ClaudeHistoryToObsidian
 
   def build_markdown(project_name:, cwd:, session_id:, messages:, source: 'code')
     # セッション開始時刻を使用（Time.now は使わない）
-    # UTC統一: ローカルタイム変換せず、UTCのまま使用
-    utc_time = extract_session_time(messages)
-    timestamp = utc_time ?
-      utc_time.utc.strftime('%Y-%m-%d %H:%M:%S +0000') :  # UTC統一、タイムゾーン明示
-      'Unknown'  # タイムスタンプ取得失敗時
+    # ローカルタイム: マシンのタイムゾーンで表示（オフセット付き）
+    local_time = extract_session_time(messages)
+    if local_time
+      # ローカルタイムのオフセットを取得して整形
+      offset_str = local_time.strftime('%z')  # e.g., "+0900"
+      offset_formatted = "#{offset_str[0..2]}:#{offset_str[3..4]}"  # e.g., "+09:00"
+      timestamp = local_time.strftime("%Y-%m-%d %H:%M:%S #{offset_formatted}")
+    else
+      timestamp = 'Unknown'
+    end
 
     session_type = source == 'web' ? 'Claude Web Session' : 'Claude Code Session'
 
@@ -257,7 +263,7 @@ class ClaudeHistoryToObsidian
     if source == 'web' && transcript
       timestamp = extract_session_timestamp(transcript)
       if timestamp
-        year_month = timestamp[0..5]  # "20251103-143022" -> "202511"
+        year_month = timestamp[0..5]  # "20251103-233022" (ローカルタイム) -> "202511"
         project_name = year_month
       end
     end
@@ -279,7 +285,7 @@ class ClaudeHistoryToObsidian
   def generate_filename(session_name, session_id, transcript, source = 'code', project_name = nil)
     # セッションの最初のメッセージのタイムスタンプを使用（冪等性を保つため）
     # なければフォールバック（Hook互換性のため）
-    timestamp = extract_session_timestamp(transcript) || Time.now.strftime('%Y%m%d-%H%M%S')
+    timestamp = extract_session_timestamp(transcript) || Time.now.getlocal.strftime('%Y%m%d-%H%M%S')
 
     if source == 'web'
       # Web の場合は session_id を含めない
@@ -302,11 +308,11 @@ class ClaudeHistoryToObsidian
     first_msg = messages.first
     return nil unless first_msg['timestamp']
 
-    # ISO 8601形式のタイムスタンプをYYYYMMDD-HHMMSSZに変換
-    # UTC統一: ローカルタイム変換せず、UTCのまま使用
-    # タイムゾーン明示のため Z サフィックス追加
+    # ISO 8601形式のタイムスタンプをYYYYMMDD-HHMMSSに変換
+    # ローカルタイム: UTC から読んだ時刻をローカルに変換して出力
     utc_time = Time.parse(first_msg['timestamp']).utc
-    utc_time.strftime('%Y%m%d-%H%M%SZ')
+    local_time = utc_time.getlocal
+    local_time.strftime('%Y%m%d-%H%M%S')
   rescue StandardError => e
     log("WARNING: Failed to extract session timestamp: #{e.message}")
     nil
@@ -320,7 +326,9 @@ class ClaudeHistoryToObsidian
     first_msg = messages.first
     return nil unless first_msg['timestamp']
 
-    Time.parse(first_msg['timestamp'])  # Timeオブジェクトを返す
+    # ローカルタイムの Time オブジェクトを返す
+    utc_time = Time.parse(first_msg['timestamp']).utc
+    utc_time.getlocal
   rescue StandardError => e
     log("WARNING: Failed to parse session time: #{e.message}")
     nil

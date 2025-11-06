@@ -185,8 +185,8 @@ class TestClaudeHistoryToObsidian < Test::Unit::TestCase
     }
 
     timestamp = processor.send(:extract_session_timestamp, transcript)
-    # UTC統一: Z サフィックス付き
-    assert_equal '20251103-143022Z', timestamp
+    # ローカルタイム (JST): UTC 14:30:22 → JST 23:30:22
+    assert_equal '20251103-233022', timestamp
   end
 
   def test_extract_session_timestamp_returns_nil_when_missing
@@ -219,8 +219,8 @@ class TestClaudeHistoryToObsidian < Test::Unit::TestCase
 
     timestamp = processor.send(:extract_session_timestamp, transcript)
 
-    # UTC統一: ローカルタイム変換せず、Zサフィックス付き
-    assert_equal '20251103-143022Z', timestamp, 'Should keep UTC time with Z suffix'
+    # ローカルタイム (JST): UTC 14:30:22 → JST 23:30:22、Z サフィックスなし
+    assert_equal '20251103-233022', timestamp, 'Should return local time without Z suffix'
   end
 
   def test_extract_session_time_returns_time_object
@@ -233,7 +233,8 @@ class TestClaudeHistoryToObsidian < Test::Unit::TestCase
     time_obj = processor.send(:extract_session_time, messages)
 
     assert_instance_of Time, time_obj
-    assert_equal Time.parse('2025-11-03T14:30:22.000Z'), time_obj
+    # ローカルタイム: UTC から getlocal で JST に変換
+    assert_equal Time.parse('2025-11-03T14:30:22.000Z').getlocal, time_obj
   end
 
   def test_extract_session_time_returns_nil_for_invalid_timestamp
@@ -676,13 +677,13 @@ class TestClaudeHistoryToObsidian < Test::Unit::TestCase
 
         filename = File.basename(files[0])
 
-        # UTC統一: ファイル名のタイムスタンプはUTCのまま、Zサフィックス付き
-        expected_utc_time = '20251103-050000Z'
-        assert filename.start_with?(expected_utc_time), "Filename should start with UTC time: #{filename}"
+        # ローカルタイム: ファイル名のタイムスタンプはローカルタイム (JST), Z サフィックスなし
+        expected_local_time = '20251103-140000'
+        assert filename.start_with?(expected_local_time), "Filename should start with local time: #{filename}"
 
-        # ファイル内のDateフィールドもUTC統一
+        # ファイル内のDateフィールドもローカルタイム
         content = File.read(files[0])
-        expected_date_str = '2025-11-03 05:00:00 +0000'
+        expected_date_str = '2025-11-03 14:00:00 +09:00'
         assert_include content, "**Date**: #{expected_date_str}"
       ensure
         # クリーンアップ
@@ -1314,12 +1315,12 @@ class TestClaudeHistoryToObsidian < Test::Unit::TestCase
       messages: messages
     )
 
-    # UTC統一: セッション開始時刻がUTCで使用されている
-    expected_date = '2025-10-01 10:00:00 +0000'
+    # ローカルタイム: セッション開始時刻がローカルタイムで使用されている (JST)
+    expected_date = '2025-10-01 19:00:00 +09:00'
     assert_include markdown, "**Date**: #{expected_date}"
 
     # 現在時刻は含まれていない
-    current_date = Time.now.utc.strftime('%Y-%m-%d')
+    current_date = Time.now.getlocal.strftime('%Y-%m-%d')
     assert !markdown.include?("**Date**: #{current_date}") || current_date == '2025-10-01',
            'Should not include current date unless it matches session date'
   end
@@ -1360,11 +1361,11 @@ class TestClaudeHistoryToObsidian < Test::Unit::TestCase
       messages: messages
     )
 
-    # UTC統一: タイムゾーンオフセット +0000 が明示的に含まれている
-    expected_timestamp_with_tz = '2025-11-03 14:30:22 +0000'
+    # ローカルタイム: タイムゾーンオフセット +09:00 が明示的に含まれている (JST)
+    expected_timestamp_with_tz = '2025-11-03 23:30:22 +09:00'
 
     assert_include markdown, "**Date**: #{expected_timestamp_with_tz}",
-                   'Markdown should include UTC timezone (+0000)'
+                   'Markdown should include local timezone (+09:00)'
   end
 
   # === カバレッジ90%+達成のためのテスト ===

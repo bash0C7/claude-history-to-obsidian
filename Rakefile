@@ -200,7 +200,10 @@ def extract_first_message_timestamp(messages)
   first_msg = messages.first
   return nil unless first_msg['timestamp']
 
-  Time.parse(first_msg['timestamp']).strftime('%Y%m%d-%H%M%S')
+  # ローカルタイム: UTC → getlocal で変換してから整形
+  utc_time = Time.parse(first_msg['timestamp']).utc
+  local_time = utc_time.getlocal
+  local_time.strftime('%Y%m%d-%H%M%S')
 rescue StandardError => e
   warn "WARNING: Failed to extract timestamp: #{e.message}"
   nil

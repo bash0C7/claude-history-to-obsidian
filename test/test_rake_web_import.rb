@@ -7,6 +7,13 @@ require 'tmpdir'
 require 'fileutils'
 require 'open3'
 
+# ENV変数をテスト用に設定（lib読み込み前に定数を初期化）
+ENV['CLAUDE_VAULT_PATH'] = '/tmp/test-vault/Claude Code'
+ENV['CLAUDE_WEB_VAULT_PATH'] = '/tmp/test-vault/claude.ai'
+ENV['CLAUDE_LOG_PATH'] = '/tmp/test.log'
+
+require_relative 'test_helper'
+
 class TestRakeWebImport < Test::Unit::TestCase
   def setup
     @test_dir = Dir.mktmpdir

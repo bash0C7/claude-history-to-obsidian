@@ -6,8 +6,7 @@ require_relative 'lib/claude_history_to_obsidian'
 
 desc 'Run all tests with coverage report'
 task 'test:coverage' do
-  test_files = Dir.glob('test/test_*.rb').reject { |f| f.include?('test_helper') }.join(' ')
-  sh "bundle exec ruby -I lib:test -rtest/unit #{test_files}"
+  sh "bundle exec ruby -I lib:test test/run_all_tests.rb"
   puts "\n📊 Coverage report: coverage/index.html"
   sh 'open coverage/index.html' if RUBY_PLATFORM.include?('darwin')
 end
